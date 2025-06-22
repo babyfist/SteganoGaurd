@@ -36,41 +36,42 @@ export async function embedDataInImage(imageFile: File, dataToEmbed: ArrayBuffer
   fullPayload.set(new Uint8Array(dataToEmbed), 0);
   fullPayload.set(EOD_MARKER, dataLength);
 
-  const requiredPixels = 1 + Math.ceil((fullPayload.length * 8) / 3);
+  // Use LSB of 11 pixels for 32-bit length header (11 pixels * 3 channels/pixel = 33 bits available)
+  const HEADER_PIXELS = 11;
+  const requiredPixels = HEADER_PIXELS + Math.ceil((fullPayload.length * 8) / 3);
   const maxPixels = pixels.length / 4;
   
   if (requiredPixels > maxPixels) {
     throw new Error(`Image is too small. Needs space for ${requiredPixels} pixels, but has only ${maxPixels}.`);
   }
   
-  // Use 32 bits (4 bytes) for length, stored in the first pixel's RGBA channels
-  const view = new DataView(new ArrayBuffer(4));
-  view.setUint32(0, dataLength, false); // false for big-endian
-  const lengthBytes = new Uint8Array(view.buffer);
+  // Embed 32-bit dataLength into the LSBs of the first 11 pixels' RGB channels
+  let headerBitIndex = 0;
+  for (let i = 0; i < 32; i++) {
+    const bit = (dataLength >> (31 - i)) & 1; // Get bit from MSB to LSB
+    const pixelIndex = Math.floor(headerBitIndex / 3) * 4;
+    const channelIndex = headerBitIndex % 3;
+
+    pixels[pixelIndex + 3] = 255; // Ensure pixel is opaque to avoid premultiplied alpha issues
+    pixels[pixelIndex + channelIndex] = (pixels[pixelIndex + channelIndex] & 0xFE) | bit;
+    headerBitIndex++;
+  }
   
-  pixels[0] = lengthBytes[0];
-  pixels[1] = lengthBytes[1];
-  pixels[2] = lengthBytes[2];
-  pixels[3] = lengthBytes[3];
-  
-  let pixelIndex = 4;
-  let bitIndex = 0;
+  // Embed payload starting after the header
+  let payloadPixelIndex = HEADER_PIXELS * 4;
+  let payloadBitIndex = 0;
 
   for (let i = 0; i < fullPayload.length; i++) {
     const byte = fullPayload[i];
     for (let j = 0; j < 8; j++) {
       const bit = (byte >> (7 - j)) & 1;
-      const channelIndex = bitIndex % 3;
+      const currentPixelIndex = payloadPixelIndex + (Math.floor(payloadBitIndex / 3) * 4);
+      const channelIndex = payloadBitIndex % 3;
       
-      // Ensure pixel is opaque before modifying to avoid alpha premultiplication issues
-      pixels[pixelIndex + 3] = 255;
-      pixels[pixelIndex + channelIndex] = (pixels[pixelIndex + channelIndex] & 0xFE) | bit;
+      pixels[currentPixelIndex + 3] = 255; // Ensure opacity
+      pixels[currentPixelIndex + channelIndex] = (pixels[currentPixelIndex + channelIndex] & 0xFE) | bit;
       
-      bitIndex++;
-      
-      if (bitIndex % 3 === 0) {
-        pixelIndex += 4;
-      }
+      payloadBitIndex++;
     }
   }
 
@@ -84,12 +85,29 @@ export async function extractDataFromImage(imageFile: File): Promise<ArrayBuffer
   const imageData = ctx.getImageData(0, 0, img.width, img.height);
   const pixels = imageData.data;
 
-  // Extract 32-bit length from the first pixel's RGBA values
-  const lengthBytes = new Uint8Array([pixels[0], pixels[1], pixels[2], pixels[3]]);
-  const view = new DataView(lengthBytes.buffer);
-  const dataLength = view.getUint32(0, false); // false for big-endian
+  const HEADER_PIXELS = 11;
+  const maxPixels = pixels.length / 4;
 
-  const maxStorableBytes = Math.floor(((pixels.length / 4) - 1) * 3 / 8);
+  if (maxPixels < HEADER_PIXELS) {
+    throw new Error("Image is too small to contain a header.");
+  }
+
+  // Extract 32-bit length from LSBs of first 11 pixels' RGB channels
+  let lengthBits: number[] = [];
+  let headerBitIndex = 0;
+  while(lengthBits.length < 32) {
+      const pixelIndex = Math.floor(headerBitIndex / 3) * 4;
+      const channelIndex = headerBitIndex % 3;
+      lengthBits.push(pixels[pixelIndex + channelIndex] & 1);
+      headerBitIndex++;
+  }
+
+  let dataLength = 0;
+  for(let i = 0; i < 32; i++) {
+      dataLength = (dataLength << 1) | lengthBits[i];
+  }
+  
+  const maxStorableBytes = Math.floor((maxPixels - HEADER_PIXELS) * 3 / 8);
 
   if (dataLength === 0 || isNaN(dataLength) || dataLength > maxStorableBytes ) {
     throw new Error("No data length found in image header or data is corrupted.");
@@ -97,18 +115,19 @@ export async function extractDataFromImage(imageFile: File): Promise<ArrayBuffer
   
   const totalBitsToExtract = (dataLength + EOD_MARKER.length) * 8;
   const extractedBits: number[] = [];
-  let pixelIndex = 4;
+  let payloadPixelIndexOffset = HEADER_PIXELS * 4;
+  let payloadBitIndex = 0;
   
   while (extractedBits.length < totalBitsToExtract) {
-      if (pixelIndex >= pixels.length) {
+      const currentPixelIndex = payloadPixelIndexOffset + (Math.floor(payloadBitIndex / 3) * 4);
+
+      if (currentPixelIndex >= pixels.length) {
           throw new Error("Extraction error: Reached end of image data unexpectedly.");
       }
-      for (let channelIndex = 0; channelIndex < 3; channelIndex++) {
-          if (extractedBits.length < totalBitsToExtract) {
-              extractedBits.push(pixels[pixelIndex + channelIndex] & 1);
-          }
-      }
-      pixelIndex += 4;
+
+      const channelIndex = payloadBitIndex % 3;
+      extractedBits.push(pixels[currentPixelIndex + channelIndex] & 1);
+      payloadBitIndex++;
   }
 
   const allBytes: number[] = [];
@@ -124,6 +143,11 @@ export async function extractDataFromImage(imageFile: File): Promise<ArrayBuffer
 
   const extractedBytes = new Uint8Array(allBytes);
   const eodIndex = dataLength;
+  
+  if (eodIndex + EOD_MARKER.length > extractedBytes.length) {
+    throw new Error("End-of-data marker not found. Extracted data is shorter than expected.");
+  }
+
   const foundEod = extractedBytes.slice(eodIndex, eodIndex + EOD_MARKER.length);
   
   if (!EOD_MARKER.every((val, i) => val === foundEod[i])) {
