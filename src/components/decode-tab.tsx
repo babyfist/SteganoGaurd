@@ -129,29 +129,38 @@ export default function DecodeTab() {
     }
     setIsLoading(true);
     setError('');
+    setDecryptedMessage('');
+
     try {
         let foundMessage = false;
-        for (const identity of identities) {
-            try {
-                const myKeyHash = await getPublicKeyHash(identity.encryption.publicKey);
-                const myMessageData = decodedData.messages.find(m => m.recipientPublicKeyHash === myKeyHash);
+        let decryptionError = '';
 
-                if (myMessageData) {
+        for (const identity of identities) {
+            const myKeyHash = await getPublicKeyHash(identity.encryption.publicKey);
+            const myMessageData = decodedData.messages.find(m => m.recipientPublicKeyHash === myKeyHash);
+
+            if (myMessageData) {
+                try {
                     const myPrivateKey = await importEncryptionKey(identity.encryption.privateKey, ['deriveKey']);
                     const decrypted = await decryptHybrid(myMessageData, myPrivateKey);
                     setDecryptedMessage(decrypted);
                     toast({ title: "Message Decrypted", description: `Your secret message was decrypted with identity: ${identity.name}.` });
                     foundMessage = true;
+                    decryptionError = ''; // Clear error on success
                     break;
+                } catch (e) {
+                    console.error(`Decryption failed for identity "${identity.name}":`, e);
+                    decryptionError = `Found a message for identity "${identity.name}", but it could not be decrypted. The key may be incorrect or the data corrupted.`;
                 }
-            } catch (e) {
-                console.log(`Could not decrypt with key ${identity.name}, trying next one.`);
             }
         }
 
         if (!foundMessage) {
-            setError("No message found for any of your identities in this image.");
-            toast({ variant: "destructive", title: "Not Found", description: "No message for your keys was found." });
+            const finalError = decryptionError || "No message found for any of your identities in this image.";
+            setError(finalError);
+            if(finalError) {
+              toast({ variant: "destructive", title: "Decryption Failed", description: finalError });
+            }
         }
 
     } catch (err) {
