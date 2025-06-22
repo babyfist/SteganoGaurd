@@ -14,11 +14,12 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Upload, KeyRound, Lock, ShieldCheck, FileWarning, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
+const SIGNATURE_LENGTH_BYTES = 64;
+
 type DecodedData = {
   senderPublicKey: JsonWebKey;
   decoy: { iv: string; ciphertext: string; };
   messages: { recipientPublicKeyHash: string; ephemeralPublicKey: JsonWebKey; iv: string; ciphertext:string; }[];
-  signature: ArrayBuffer;
 };
 
 export default function DecodeTab() {
@@ -54,16 +55,25 @@ export default function DecodeTab() {
       setPassword('');
 
       try {
-        const { data: extractedData, signature } = await extractDataFromImage(imageFile);
-        const dataJson = arrayBufferToText(extractedData);
-        const data = JSON.parse(dataJson);
+        const extractedBuffer = await extractDataFromImage(imageFile);
+        
+        if (extractedBuffer.byteLength <= SIGNATURE_LENGTH_BYTES) {
+            throw new Error("Extracted data is too small to contain a signature.");
+        }
+
+        const payloadLength = extractedBuffer.byteLength - SIGNATURE_LENGTH_BYTES;
+        const payloadBuffer = extractedBuffer.slice(0, payloadLength);
+        const signatureBuffer = extractedBuffer.slice(payloadLength);
+        
+        const dataJson = arrayBufferToText(payloadBuffer);
+        const data: DecodedData = JSON.parse(dataJson);
 
         const senderSigningKey = await importSigningKey(data.senderPublicKey, 'verify');
-        const verified = await verifySignature(senderSigningKey, signature, extractedData);
+        const verified = await verifySignature(senderSigningKey, signatureBuffer, payloadBuffer);
         setIsVerified(verified);
         
         if (verified) {
-            setDecodedData({ ...data, signature });
+            setDecodedData(data);
             toast({ title: "Success", description: "Image data extracted and signature verified." });
         } else {
             setError("Signature verification failed! The data may have been tampered with.");
@@ -131,10 +141,9 @@ export default function DecodeTab() {
                     setDecryptedMessage(decrypted);
                     toast({ title: "Message Decrypted", description: `Your secret message was decrypted with identity: ${identity.name}.` });
                     foundMessage = true;
-                    break; // Exit loop once message is found and decrypted
+                    break;
                 }
             } catch (e) {
-                // Ignore errors for non-matching keys and continue trying others.
                 console.log(`Could not decrypt with key ${identity.name}, trying next one.`);
             }
         }

@@ -16,6 +16,8 @@ import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarn
 import { encryptSymmetric, encryptHybrid, importSigningKey, signData, textToArrayBuffer, getPublicKeyHash, importEncryptionKey } from '@/lib/crypto';
 import { embedDataInImage } from '@/lib/steganography';
 
+const SIGNATURE_LENGTH_BYTES = 64;
+
 export default function EncodeTab() {
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [decoyMessage, setDecoyMessage] = useState('');
@@ -74,14 +76,10 @@ export default function EncodeTab() {
     setResultImage(null);
 
     try {
-        // 1. Get keys from stored identity
         const privateSigningKey = await importSigningKey(activeIdentity.signing.privateKey, 'sign');
         const publicSigningKeyJwk = activeIdentity.signing.publicKey;
-
-        // 2. Encrypt decoy message
         const encryptedDecoy = await encryptSymmetric(decoyMessage, password);
 
-        // 3. Encrypt secret message for each recipient
         const encryptedMessages = await Promise.all(selectedRecipients.map(async (recipient) => {
             const recipientPublicKey = await importEncryptionKey(recipient.encryptionPublicKey, []);
             const recipientKeyHash = await getPublicKeyHash(recipient.encryptionPublicKey);
@@ -92,7 +90,6 @@ export default function EncodeTab() {
             };
         }));
         
-        // 4. Construct payload
         const payload = {
             senderPublicKey: publicSigningKeyJwk,
             decoy: encryptedDecoy,
@@ -100,11 +97,13 @@ export default function EncodeTab() {
         };
         const payloadBuffer = textToArrayBuffer(JSON.stringify(payload));
 
-        // 5. Sign payload
         const signature = await signData(privateSigningKey, payloadBuffer);
 
-        // 6. Embed in image
-        const stegoImageUrl = await embedDataInImage(coverImage, payloadBuffer, signature);
+        const combinedBuffer = new Uint8Array(payloadBuffer.byteLength + signature.byteLength);
+        combinedBuffer.set(new Uint8Array(payloadBuffer), 0);
+        combinedBuffer.set(new Uint8Array(signature), payloadBuffer.byteLength);
+
+        const stegoImageUrl = await embedDataInImage(coverImage, combinedBuffer.buffer);
         setResultImage(stegoImageUrl);
 
         toast({
