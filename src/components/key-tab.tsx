@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
 import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, downloadJson } from '@/lib/crypto';
-import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck } from 'lucide-react';
+import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Share2 } from 'lucide-react';
 
 export default function KeyTab() {
   const [isLoading, setIsLoading] = useState(false);
@@ -139,7 +140,21 @@ export default function KeyTab() {
   const exportIdentity = (id: string) => {
       const identity = identities.find(i => i.id === id);
       if (identity) {
-          downloadJson(identity, `steganoguard_identity_${identity.name.replace(/\s/g, '_')}.json`);
+          downloadJson(identity, `steganoguard_identity-backup_${identity.name.replace(/\s/g, '_')}.json`);
+      }
+  };
+  
+  const exportPublicKeys = (id: string) => {
+      const identity = identities.find(i => i.id === id);
+      if (identity) {
+          const publicData = {
+              name: identity.name,
+              description: "SteganoGuard Public Keys for Sharing",
+              signing: { publicKey: identity.signing.publicKey },
+              encryption: { publicKey: identity.encryption.publicKey },
+          };
+          downloadJson(publicData, `steganoguard_public-keys_${identity.name.replace(/\s/g, '_')}.json`);
+          toast({title: "Public Key Exported", description: "The file can now be shared with your contacts."})
       }
   };
 
@@ -181,9 +196,32 @@ export default function KeyTab() {
                 </div>
                 <div className="flex items-center gap-2">
                     {activeIdentityId !== idKey.id && <Button variant="outline" size="sm" onClick={() => setActiveIdentityId(idKey.id)}>Set Active</Button>}
-                    <Button variant="ghost" size="sm" onClick={() => exportIdentity(idKey.id)}><Download className="h-4 w-4 mr-1" /> Export</Button>
                     <AlertDialog>
-                      <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                           <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                           <DropdownMenuItem onClick={() => exportPublicKeys(idKey.id)}>
+                            <Share2 className="mr-2 h-4 w-4" />
+                            <span>Share Public Key</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => exportIdentity(idKey.id)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            <span>Backup Full Identity</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>Delete...</span>
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <AlertDialogContent>
                           <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the identity "{idKey.name}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
                           <AlertDialogFooter>
@@ -259,5 +297,3 @@ export default function KeyTab() {
     </div>
   );
 }
-
-    
