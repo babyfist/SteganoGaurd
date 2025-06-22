@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, Us
 
 export default function KeyTab() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [identities, setIdentities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
   const [activeIdentityId, setActiveIdentityId] = useLocalStorage<string | null>('activeKeyId', null);
   const [contacts, setContacts] = useLocalStorage<Contact[]>('contacts', []);
@@ -29,6 +30,10 @@ export default function KeyTab() {
   const importIdentityRef = useRef<HTMLInputElement>(null);
   const addContactRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleGenerateIdentity = async () => {
     setIsLoading(true);
@@ -179,61 +184,70 @@ export default function KeyTab() {
           <CardDescription>Manage your key pairs. The active identity is used to sign messages.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!activeIdentityId && identities.length > 0 && (
-            <Alert variant="destructive">
-              <ShieldCheck className="h-4 w-4" />
-              <AlertTitle>No Active Identity!</AlertTitle>
-              <AlertDescription>Please set an active identity to be able to sign and send messages.</AlertDescription>
-            </Alert>
-          )}
-          <div className="space-y-2">
-            {identities.length === 0 && <p className="text-sm text-muted-foreground">No identities found. Generate or import one to get started.</p>}
-            {identities.map(idKey => (
-              <div key={idKey.id} className="flex items-center justify-between p-2 rounded-lg border bg-background hover:bg-muted/50">
-                <div className="flex items-center gap-3">
-                    {activeIdentityId === idKey.id ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <div className="w-5 h-5"/>}
-                    <span className="font-medium">{idKey.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    {activeIdentityId !== idKey.id && <Button variant="outline" size="sm" onClick={() => setActiveIdentityId(idKey.id)}>Set Active</Button>}
-                    <AlertDialog>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                           <DropdownMenuItem onClick={() => exportPublicKeys(idKey.id)}>
-                            <Share2 className="mr-2 h-4 w-4" />
-                            <span>Share Public Key</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => exportIdentity(idKey.id)}>
-                            <Download className="mr-2 h-4 w-4" />
-                            <span>Backup Full Identity</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem className="text-destructive focus:text-destructive">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                <span>Delete...</span>
-                            </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <AlertDialogContent>
-                          <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the identity "{idKey.name}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                          <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteIdentity(idKey.id)}>Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                </div>
+          {!isMounted ? (
+            <div className="flex items-center justify-center space-x-2 py-4">
+                <Loader2 className="h-5 w-5 animate-spin" /> 
+                <span>Loading Identities...</span>
+            </div>
+          ) : (
+            <>
+              {!activeIdentityId && identities.length > 0 && (
+                <Alert variant="destructive">
+                  <ShieldCheck className="h-4 w-4" />
+                  <AlertTitle>No Active Identity!</AlertTitle>
+                  <AlertDescription>Please set an active identity to be able to sign and send messages.</AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-2">
+                {identities.length === 0 && <p className="text-sm text-muted-foreground">No identities found. Generate or import one to get started.</p>}
+                {identities.map(idKey => (
+                  <div key={idKey.id} className="flex items-center justify-between p-2 rounded-lg border bg-background hover:bg-muted/50">
+                    <div className="flex items-center gap-3">
+                        {activeIdentityId === idKey.id ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <div className="w-5 h-5"/>}
+                        <span className="font-medium">{idKey.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {activeIdentityId !== idKey.id && <Button variant="outline" size="sm" onClick={() => setActiveIdentityId(idKey.id)}>Set Active</Button>}
+                        <AlertDialog>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                               <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                               <DropdownMenuItem onClick={() => exportPublicKeys(idKey.id)}>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                <span>Share Public Key</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => exportIdentity(idKey.id)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                <span>Backup Full Identity</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    <span>Delete...</span>
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <AlertDialogContent>
+                              <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the identity "{idKey.name}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                              <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteIdentity(idKey.id)}>Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </CardContent>
         <CardFooter className="gap-2">
           <Button onClick={handleGenerateIdentity} disabled={isLoading}><KeyRound /> {isLoading ? <Loader2 className="animate-spin" /> : 'Generate New Identity'}</Button>
@@ -248,25 +262,34 @@ export default function KeyTab() {
             <CardDescription>Manage your contacts' public keys to send them encrypted messages.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-             {contacts.length === 0 && <p className="text-sm text-muted-foreground">No contacts found. Add a contact to send them secret messages.</p>}
-             {contacts.map(contact => (
-                <div key={contact.id} className="flex items-center justify-between p-2 rounded-lg border bg-background hover:bg-muted/50">
-                    <span className="font-medium">{contact.name}</span>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => exportContactPublicKey(contact.id)}><Download className="h-4 w-4 mr-1"/> Export Public Key</Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                          <AlertDialogContent>
-                              <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will delete "{contact.name}" from your contacts.</AlertDialogDescription></AlertDialogHeader>
-                              <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => deleteContact(contact.id)}>Delete</AlertDialogAction>
-                              </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
+             {!isMounted ? (
+                <div className="flex items-center justify-center space-x-2 py-4">
+                    <Loader2 className="h-5 w-5 animate-spin" /> 
+                    <span>Loading Contacts...</span>
                 </div>
-             ))}
+             ) : (
+                <>
+                 {contacts.length === 0 && <p className="text-sm text-muted-foreground">No contacts found. Add a contact to send them secret messages.</p>}
+                 {contacts.map(contact => (
+                    <div key={contact.id} className="flex items-center justify-between p-2 rounded-lg border bg-background hover:bg-muted/50">
+                        <span className="font-medium">{contact.name}</span>
+                        <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => exportContactPublicKey(contact.id)}><Download className="h-4 w-4 mr-1"/> Export Public Key</Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                              <AlertDialogContent>
+                                  <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will delete "{contact.name}" from your contacts.</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteContact(contact.id)}>Delete</AlertDialogAction>
+                                  </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    </div>
+                 ))}
+                </>
+             )}
           </CardContent>
           <CardFooter>
             <Dialog onOpenChange={(open) => { if(!open) { setContactName(''); setPendingContactKeyFile(null); }}}>

@@ -30,11 +30,16 @@ export default function DecodeTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [decodedData, setDecodedData] = useState<DecodedData | null>(null);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   const [identities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const processImage = async () => {
@@ -106,7 +111,7 @@ export default function DecodeTab() {
         setError("Cannot decrypt message, signature is invalid.");
         return;
     }
-    if (identities.length === 0) {
+    if (isMounted && identities.length === 0) {
         setError("No identities found. Please add or import an identity in the Key Management tab.");
         return;
     }
@@ -207,11 +212,13 @@ export default function DecodeTab() {
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">3. Decrypt Your Message</h3>
                  <p className="text-sm text-muted-foreground">The app will automatically try all of your saved identities to find and decrypt your message.</p>
-                <Button onClick={handleMessageDecrypt} disabled={isLoading || isVerified === false || identities.length === 0} className="w-full">
+                <Button onClick={handleMessageDecrypt} disabled={isLoading || isVerified === false || !isMounted || identities.length === 0} className="w-full">
                    {isLoading && !decryptedMessage ? <Loader2 className="animate-spin" /> : <Lock />}
                   Decrypt Message
                 </Button>
-                 {identities.length === 0 && <Alert variant="destructive"><AlertDescription>No identities found. Add one in the Key Management tab.</AlertDescription></Alert>}
+                 {!isMounted ? (
+                     <Alert><Loader2 className="h-4 w-4 animate-spin" /> <AlertDescription>Loading identities...</AlertDescription></Alert>
+                 ) : identities.length === 0 && <Alert variant="destructive"><AlertDescription>No identities found. Add one in the Key Management tab.</AlertDescription></Alert>}
                 {decryptedMessage && (
                   <Alert>
                     <AlertTitle>Decrypted Secret Message</AlertTitle>

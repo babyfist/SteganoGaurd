@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ export default function EncodeTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [resultImage, setResultImage] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   
   const [identities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
   const [activeIdentityId] = useLocalStorage<string | null>('activeKeyId', null);
@@ -35,6 +36,10 @@ export default function EncodeTab() {
 
   const coverImageRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleToggleRecipient = (contactId: string) => {
     const newSelection = new Set(selectedContactIds);
@@ -153,7 +158,12 @@ export default function EncodeTab() {
                 <h3 className="font-semibold text-lg">2. Identity & Recipients</h3>
                 <div className="space-y-2">
                     <Label>Signing Identity</Label>
-                    {activeIdentity ? (
+                    {!isMounted ? (
+                        <Alert>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <AlertTitle>Loading Identity...</AlertTitle>
+                        </Alert>
+                    ) : activeIdentity ? (
                         <Alert>
                             <ShieldCheck className="h-4 w-4" />
                             <AlertTitle>Active Identity</AlertTitle>
@@ -168,7 +178,12 @@ export default function EncodeTab() {
                 </div>
                  <div className="space-y-2">
                     <Label>Recipients</Label>
-                     {contacts.length === 0 ? (
+                     {!isMounted ? (
+                         <Alert>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <AlertTitle>Loading Contacts...</AlertTitle>
+                         </Alert>
+                     ) : contacts.length === 0 ? (
                         <Alert>
                             <Users className="h-4 w-4" />
                             <AlertTitle>No Contacts Found</AlertTitle>
@@ -219,7 +234,7 @@ export default function EncodeTab() {
 
       </CardContent>
       <CardFooter>
-        <Button onClick={handleEncode} disabled={isLoading || !activeIdentity} className="w-full">
+        <Button onClick={handleEncode} disabled={isLoading || !isMounted || !activeIdentity} className="w-full">
             {isLoading ? <Loader2 className="animate-spin" /> : <Lock />}
             Encode, Sign, and Embed
         </Button>
