@@ -8,62 +8,57 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, KeyRound, Lock, Image as ImageIcon, Send, Download, Loader2, FileWarning, Trash2 } from 'lucide-react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { IdentityKeyPair, Contact } from '@/lib/types';
+import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarning, Users, ShieldCheck } from 'lucide-react';
 import { encryptSymmetric, encryptHybrid, importSigningKey, signData, textToArrayBuffer, getPublicKeyHash, importEncryptionKey } from '@/lib/crypto';
 import { embedDataInImage } from '@/lib/steganography';
-
-type Recipient = {
-    file: File;
-    name: string;
-    key: CryptoKey;
-    keyHash: string;
-};
 
 export default function EncodeTab() {
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [decoyMessage, setDecoyMessage] = useState('');
   const [password, setPassword] = useState('');
   const [secretMessage, setSecretMessage] = useState('');
-  const [recipients, setRecipients] = useState<Recipient[]>([]);
-  const [signingKeyFile, setSigningKeyFile] = useState<File | null>(null);
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [resultImage, setResultImage] = useState<string | null>(null);
+  
+  const [identities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
+  const [activeIdentityId] = useLocalStorage<string | null>('activeKeyId', null);
+  const [contacts] = useLocalStorage<Contact[]>('contacts', []);
+  
+  const activeIdentity = identities.find(id => id.id === activeIdentityId);
 
   const coverImageRef = useRef<HTMLInputElement>(null);
-  const signingKeyRef = useRef<HTMLInputElement>(null);
-  const recipientKeysRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const handleAddRecipients = async (files: FileList | null) => {
-    if (!files) return;
-    setError('');
-
-    const newRecipients: Recipient[] = [...recipients];
-
-    try {
-        for (const file of Array.from(files)) {
-            if (recipients.some(r => r.name === file.name)) continue; // Skip duplicates
-
-            const keyFileContent = await file.text();
-            const { encryption } = JSON.parse(keyFileContent);
-            if (!encryption || !encryption.publicKey) {
-                throw new Error(`Invalid key file format in ${file.name}.`);
-            }
-            const publicKey = await importEncryptionKey(encryption.publicKey, []);
-            const keyHash = await getPublicKeyHash(encryption.publicKey);
-            newRecipients.push({ file, name: file.name, key: publicKey, keyHash });
-        }
-        setRecipients(newRecipients);
-    } catch (err) {
-        setError(`Error processing recipient keys: ${(err as Error).message}`);
+  const handleToggleRecipient = (contactId: string) => {
+    const newSelection = new Set(selectedContactIds);
+    if (newSelection.has(contactId)) {
+      newSelection.delete(contactId);
+    } else {
+      newSelection.add(contactId);
     }
+    setSelectedContactIds(newSelection);
   };
-
+  
   const handleEncode = async () => {
-    if (!coverImage || !decoyMessage || !password || !secretMessage || recipients.length === 0 || !signingKeyFile) {
-        setError("Please fill all fields, select a cover image, and add at least one recipient and your signing key.");
+    const selectedRecipients = contacts.filter(c => selectedContactIds.has(c.id));
+
+    if (!coverImage || !decoyMessage || !password || !secretMessage || selectedRecipients.length === 0 || !activeIdentity) {
+        let errorMsg = "Please complete all fields. Missing: ";
+        const missing = [];
+        if (!coverImage) missing.push("cover image");
+        if (!decoyMessage) missing.push("decoy message");
+        if (!password) missing.push("password");
+        if (!secretMessage) missing.push("secret message");
+        if (!activeIdentity) missing.push("an active identity (set in Key Mgmt)");
+        if (selectedRecipients.length === 0) missing.push("at least one recipient");
+        setError(errorMsg + missing.join(', ') + '.');
         return;
     }
     setIsLoading(true);
@@ -71,22 +66,20 @@ export default function EncodeTab() {
     setResultImage(null);
 
     try {
-        // 1. Process keys
-        const signingKeyJson = JSON.parse(await signingKeyFile.text());
-        if (!signingKeyJson.signing || !signingKeyJson.signing.privateKey || !signingKeyJson.signing.publicKey) {
-            throw new Error("Invalid signing key file format.");
-        }
-        const privateSigningKey = await importSigningKey(signingKeyJson.signing.privateKey, 'sign');
-        const publicSigningKeyJwk = signingKeyJson.signing.publicKey;
+        // 1. Get keys from stored identity
+        const privateSigningKey = await importSigningKey(activeIdentity.signing.privateKey, 'sign');
+        const publicSigningKeyJwk = activeIdentity.signing.publicKey;
 
         // 2. Encrypt decoy message
         const encryptedDecoy = await encryptSymmetric(decoyMessage, password);
 
         // 3. Encrypt secret message for each recipient
-        const encryptedMessages = await Promise.all(recipients.map(async (recipient) => {
-            const encrypted = await encryptHybrid(secretMessage, recipient.key);
+        const encryptedMessages = await Promise.all(selectedRecipients.map(async (recipient) => {
+            const recipientPublicKey = await importEncryptionKey(recipient.encryptionPublicKey, []);
+            const recipientKeyHash = await getPublicKeyHash(recipient.encryptionPublicKey);
+            const encrypted = await encryptHybrid(secretMessage, recipientPublicKey);
             return {
-                recipientPublicKeyHash: recipient.keyHash,
+                recipientPublicKeyHash: recipientKeyHash,
                 ...encrypted
             };
         }));
@@ -113,11 +106,12 @@ export default function EncodeTab() {
 
     } catch (err) {
         console.error(err);
-        setError(`Encoding failed: ${(err as Error).message}`);
+        const errorMessage = (err as Error).message;
+        setError(`Encoding failed: ${errorMessage}`);
         toast({
             variant: "destructive",
             title: "Encoding Error",
-            description: `An error occurred: ${(err as Error).message}`,
+            description: `An error occurred: ${errorMessage}`,
         });
     } finally {
         setIsLoading(false);
@@ -129,7 +123,7 @@ export default function EncodeTab() {
     <Card>
       <CardHeader>
         <CardTitle>Encode & Sign</CardTitle>
-        <CardDescription>Embed a secret message into an image, signed with your key.</CardDescription>
+        <CardDescription>Embed a secret message into an image, signed with your active identity.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -156,36 +150,50 @@ export default function EncodeTab() {
                 </div>
             </div>
             <div className="space-y-4">
-                <h3 className="font-semibold text-lg">2. Keys</h3>
+                <h3 className="font-semibold text-lg">2. Identity & Recipients</h3>
                 <div className="space-y-2">
-                    <Label htmlFor="signing-key">Your Private Key (for signing)</Label>
-                    <Input id="signing-key" type="file" accept=".json" ref={signingKeyRef} onChange={(e) => setSigningKeyFile(e.target.files?.[0] || null)} className="hidden"/>
-                    <Button variant="outline" onClick={() => signingKeyRef.current?.click()} className="w-full">
-                        <KeyRound /> {signingKeyFile ? signingKeyFile.name : "Select Your Signing Key"}
-                    </Button>
+                    <Label>Signing Identity</Label>
+                    {activeIdentity ? (
+                        <Alert>
+                            <ShieldCheck className="h-4 w-4" />
+                            <AlertTitle>Active Identity</AlertTitle>
+                            <AlertDescription>{activeIdentity.name}</AlertDescription>
+                        </Alert>
+                    ) : (
+                        <Alert variant="destructive">
+                            <AlertTitle>No Active Identity</AlertTitle>
+                            <AlertDescription>Go to Key Management to set an active identity.</AlertDescription>
+                        </Alert>
+                    )}
                 </div>
                  <div className="space-y-2">
-                    <Label htmlFor="recipient-keys">Recipient(s) Public Key(s)</Label>
-                    <Input id="recipient-keys" type="file" accept=".json" multiple ref={recipientKeysRef} onChange={(e) => handleAddRecipients(e.target.files)} className="hidden"/>
-                    <Button variant="outline" onClick={() => recipientKeysRef.current?.click()} className="w-full">
-                        <Send /> Select Recipient Keys
-                    </Button>
-                    <div className="space-y-2 pt-2">
-                        {recipients.map((r, i) => (
-                            <div key={i} className="flex items-center justify-between text-sm bg-muted p-2 rounded-md">
-                               <span>{r.name}</span>
-                               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setRecipients(recipients.filter(rec => rec.name !== r.name))}>
-                                   <Trash2 className="h-4 w-4" />
-                               </Button>
-                            </div>
-                        ))}
-                    </div>
+                    <Label>Recipients</Label>
+                     {contacts.length === 0 ? (
+                        <Alert>
+                            <Users className="h-4 w-4" />
+                            <AlertTitle>No Contacts Found</AlertTitle>
+                            <AlertDescription>Go to Key Management to add contacts.</AlertDescription>
+                        </Alert>
+                     ) : (
+                        <div className="space-y-2 pt-2 border rounded-md p-3 max-h-48 overflow-y-auto">
+                            {contacts.map((contact) => (
+                                <div key={contact.id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id={`contact-${contact.id}`}
+                                        checked={selectedContactIds.has(contact.id)}
+                                        onCheckedChange={() => handleToggleRecipient(contact.id)}
+                                    />
+                                    <Label htmlFor={`contact-${contact.id}`} className="font-normal cursor-pointer">{contact.name}</Label>
+                                </div>
+                            ))}
+                        </div>
+                     )}
                 </div>
             </div>
         </div>
 
         {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="mt-4">
                 <FileWarning className="h-4 w-4" />
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
@@ -211,7 +219,7 @@ export default function EncodeTab() {
 
       </CardContent>
       <CardFooter>
-        <Button onClick={handleEncode} disabled={isLoading} className="w-full">
+        <Button onClick={handleEncode} disabled={isLoading || !activeIdentity} className="w-full">
             {isLoading ? <Loader2 className="animate-spin" /> : <Lock />}
             Encode, Sign, and Embed
         </Button>

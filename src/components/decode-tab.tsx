@@ -9,20 +9,21 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { extractDataFromImage } from '@/lib/steganography';
 import { decryptSymmetric, decryptHybrid, importSigningKey, importEncryptionKey, verifySignature, arrayBufferToText, getPublicKeyHash, exportKeyJwk } from '@/lib/crypto';
+import { IdentityKeyPair } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Upload, KeyRound, Lock, ShieldCheck, FileWarning, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 type DecodedData = {
   senderPublicKey: JsonWebKey;
   decoy: { iv: string; ciphertext: string; };
-  messages: { recipientPublicKeyHash: string; ephemeralPublicKey: JsonWebKey; iv: string; ciphertext: string; }[];
+  messages: { recipientPublicKeyHash: string; ephemeralPublicKey: JsonWebKey; iv: string; ciphertext:string; }[];
   signature: ArrayBuffer;
 };
 
 export default function DecodeTab() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [password, setPassword] = useState('');
-  const [privateKeyFile, setPrivateKeyFile] = useState<File | null>(null);
   const [decryptedDecoy, setDecryptedDecoy] = useState('');
   const [decryptedMessage, setDecryptedMessage] = useState('');
   const [error, setError] = useState('');
@@ -30,8 +31,9 @@ export default function DecodeTab() {
   const [decodedData, setDecodedData] = useState<DecodedData | null>(null);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
 
+  const [identities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
+
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const keyInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,9 +47,6 @@ export default function DecodeTab() {
       setDecryptedMessage('');
       setIsVerified(null);
       setPassword('');
-      setPrivateKeyFile(null);
-      if (keyInputRef.current) keyInputRef.current.value = '';
-
 
       try {
         const { data: extractedData, signature } = await extractDataFromImage(imageFile);
@@ -99,45 +98,51 @@ export default function DecodeTab() {
   };
 
   const handleMessageDecrypt = async () => {
-    if (!decodedData || !privateKeyFile) {
-      setError("Please upload your private key file.");
+    if (!decodedData) {
+      setError("Please upload and process an image first.");
       return;
     }
-    if (isVerified === false) {
+     if (isVerified === false) {
         setError("Cannot decrypt message, signature is invalid.");
+        return;
+    }
+    if (identities.length === 0) {
+        setError("No identities found. Please add or import an identity in the Key Management tab.");
         return;
     }
     setIsLoading(true);
     setError('');
     try {
-      const keyFileContent = await privateKeyFile.text();
-      const { privateKey: privateEncryptionKeyJwk, publicKey: publicEncryptionKeyJwk } = JSON.parse(keyFileContent).encryption;
+        let foundMessage = false;
+        for (const identity of identities) {
+            try {
+                const myPublicKey = await importEncryptionKey(identity.encryption.publicKey, []);
+                const myKeyHash = await getPublicKeyHash(await exportKeyJwk(myPublicKey));
+                const myMessageData = decodedData.messages.find(m => m.recipientPublicKeyHash === myKeyHash);
 
-      if (!publicEncryptionKeyJwk || !privateEncryptionKeyJwk) {
-          throw new Error("Invalid key file format. Missing encryption keys.");
-      }
+                if (myMessageData) {
+                    const myPrivateKey = await importEncryptionKey(identity.encryption.privateKey, ['deriveKey']);
+                    const decrypted = await decryptHybrid(myMessageData, myPrivateKey);
+                    setDecryptedMessage(decrypted);
+                    toast({ title: "Message Decrypted", description: `Your secret message was decrypted with identity: ${identity.name}.` });
+                    foundMessage = true;
+                    break; // Exit loop once message is found and decrypted
+                }
+            } catch (e) {
+                // Ignore errors for non-matching keys and continue trying others.
+                console.log(`Could not decrypt with key ${identity.name}, trying next one.`);
+            }
+        }
 
-      const myPrivateKey = await importEncryptionKey(privateEncryptionKeyJwk, ['deriveKey']);
-      const myPublicKey = await importEncryptionKey(publicEncryptionKeyJwk, []);
-      const myKeyHash = await getPublicKeyHash(await exportKeyJwk(myPublicKey));
-
-      const myMessage = decodedData.messages.find(m => m.recipientPublicKeyHash === myKeyHash);
-
-      if (!myMessage) {
-        setError("No message found for the provided private key.");
-        toast({ variant: "destructive", title: "Not Found", description: "No message for your key was found in this image." });
-        setIsLoading(false);
-        return;
-      }
-
-      const decrypted = await decryptHybrid(myMessage, myPrivateKey);
-      setDecryptedMessage(decrypted);
-      toast({ title: "Message Decrypted", description: "Your secret message is revealed." });
+        if (!foundMessage) {
+            setError("No message found for any of your identities in this image.");
+            toast({ variant: "destructive", title: "Not Found", description: "No message for your keys was found." });
+        }
 
     } catch (err) {
       console.error(err);
       const errorMessage = (err as Error).message;
-      setError(`Failed to decrypt message. Ensure the key is correct. Error: ${errorMessage}`);
+      setError(`Failed to decrypt message. Error: ${errorMessage}`);
       toast({ variant: "destructive", title: "Decryption Failed", description: errorMessage });
     } finally {
       setIsLoading(false);
@@ -149,7 +154,7 @@ export default function DecodeTab() {
     <Card>
       <CardHeader>
         <CardTitle>Decode & Verify</CardTitle>
-        <CardDescription>Upload an image to extract and decrypt hidden messages.</CardDescription>
+        <CardDescription>Upload an image to extract and decrypt hidden messages using your stored identities.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -188,8 +193,7 @@ export default function DecodeTab() {
                   <Input id="password" type="password" placeholder="Enter password for decoy" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </div>
                 <Button onClick={handleDecoyDecrypt} disabled={isLoading || !password} className="w-full">
-                  {isLoading && <Loader2 className="animate-spin" />}
-                  {!isLoading && <Lock />}
+                  {isLoading && !decryptedDecoy ? <Loader2 className="animate-spin" /> : <Lock />}
                   Decrypt Decoy
                 </Button>
                 {decryptedDecoy && (
@@ -202,19 +206,12 @@ export default function DecodeTab() {
 
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">3. Decrypt Your Message</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="private-key-upload">Your Private Key (.json)</Label>
-                  <Input id="private-key-upload" type="file" accept=".json" ref={keyInputRef} onChange={(e) => setPrivateKeyFile(e.target.files?.[0] || null)} className="hidden" />
-                  <Button variant="outline" onClick={() => keyInputRef.current?.click()} className="w-full">
-                    <KeyRound />
-                    {privateKeyFile ? privateKeyFile.name : 'Select Your Key'}
-                  </Button>
-                </div>
-                <Button onClick={handleMessageDecrypt} disabled={isLoading || !privateKeyFile || isVerified === false} className="w-full">
-                   {isLoading && <Loader2 className="animate-spin" />}
-                   {!isLoading &&<Lock />}
+                 <p className="text-sm text-muted-foreground">The app will automatically try all of your saved identities to find and decrypt your message.</p>
+                <Button onClick={handleMessageDecrypt} disabled={isLoading || isVerified === false || identities.length === 0} className="w-full">
+                   {isLoading && !decryptedMessage ? <Loader2 className="animate-spin" /> : <Lock />}
                   Decrypt Message
                 </Button>
+                 {identities.length === 0 && <Alert variant="destructive"><AlertDescription>No identities found. Add one in the Key Management tab.</AlertDescription></Alert>}
                 {decryptedMessage && (
                   <Alert>
                     <AlertTitle>Decrypted Secret Message</AlertTitle>
