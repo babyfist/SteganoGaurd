@@ -314,7 +314,7 @@ export default function KeyTab() {
                 <Input id="identity-name" value={newIdentityName} onChange={(e) => setNewIdentityName(e.target.value)} />
             </div>
             <DialogFooter>
-                <DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose>
+                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
                 <Button onClick={handleRenameIdentity}>Save</Button>
             </DialogFooter>
         </DialogContent>
