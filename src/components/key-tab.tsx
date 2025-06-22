@@ -227,57 +227,45 @@ export default function KeyTab() {
                 {identities.map(identity => (
                   <AccordionItem value={identity.id} key={identity.id} className="border rounded-lg mb-2 bg-background/50">
                     <AccordionTrigger className="p-4 hover:no-underline">
-                        <div className="flex items-center justify-between w-full">
-                             <div className="flex items-center gap-3">
-                                {activeIdentityId === identity.id ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <div className="w-5 h-5"/>}
-                                <span className="font-medium text-left">{identity.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2 pr-2">
-                                {activeIdentityId !== identity.id && <Button variant="outline" size="sm" onClick={(e) => {e.stopPropagation(); setActiveIdentityId(identity.id)}}>Set Active</Button>}
-                                <AlertDialog>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
-                                        <span className="sr-only">Open menu</span>
-                                        <MoreHorizontal className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                       <DropdownMenuItem onClick={() => { setEditingIdentity(identity); setNewIdentityName(identity.name); }}>
-                                        <Pencil className="mr-2 h-4 w-4" />
-                                        <span>Rename</span>
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => exportPublicKeys(identity.id)}>
-                                        <Share2 className="mr-2 h-4 w-4" />
-                                        <span>Share Public Key</span>
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => exportIdentity(identity.id)}>
-                                        <Download className="mr-2 h-4 w-4" />
-                                        <span>Backup Full Identity</span>
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem className="text-destructive focus:text-destructive">
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            <span>Delete...</span>
-                                        </DropdownMenuItem>
-                                      </AlertDialogTrigger>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                                      <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the identity "{identity.name}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                          <AlertDialogAction onClick={() => deleteIdentity(identity.id)}>Delete</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
+                        <div className="flex items-center gap-3">
+                            {activeIdentityId === identity.id ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <div className="w-5 h-5"/>}
+                            <span className="font-medium text-left">{identity.name}</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-4 pt-0">
                       <div className="space-y-4 pl-8">
-                        <h4 className="font-semibold flex items-center gap-2"><Users className="h-4 w-4" /> Contacts for this Identity</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {activeIdentityId !== identity.id && <Button variant="outline" size="sm" onClick={() => setActiveIdentityId(identity.id)}>Set Active</Button>}
+                             <Button variant="secondary" size="sm" onClick={() => { setEditingIdentity(identity); setNewIdentityName(identity.name); }}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Rename
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => exportPublicKeys(identity.id)}>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                Share Public Key
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => exportIdentity(identity.id)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Backup Full Identity
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm">
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete...
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the identity "{identity.name}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => deleteIdentity(identity.id)}>Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+
+                        <h4 className="font-semibold flex items-center gap-2 pt-4 border-t"><Users className="h-4 w-4" /> Contacts for this Identity</h4>
                         <div className="space-y-2">
                           {identity.contacts?.length === 0 && <p className="text-sm text-muted-foreground">No contacts found for this identity.</p>}
                           {identity.contacts?.map(contact => (
