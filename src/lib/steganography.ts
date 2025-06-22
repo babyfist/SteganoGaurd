@@ -77,7 +77,11 @@ export async function extractDataFromImage(imageFile: File): Promise<ArrayBuffer
 
   const dataLength = (pixels[0] << 16) | (pixels[1] << 8) | pixels[2];
 
-  if (dataLength === 0 || isNaN(dataLength) || dataLength > (pixels.length * 3 / 8) ) {
+  // The maximum number of bytes that can be stored is (width * height * 3 bits) / 8 bits/byte
+  // which is ( (pixels.length / 4) * 3 ) / 8 = pixels.length * 3 / 32
+  const maxStorableBytes = Math.floor((pixels.length / 4 * 3) / 8);
+
+  if (dataLength === 0 || isNaN(dataLength) || dataLength > maxStorableBytes ) {
     throw new Error("No data length found in image header or data is corrupted.");
   }
   
