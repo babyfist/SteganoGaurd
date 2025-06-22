@@ -325,11 +325,11 @@ export default function KeyTab() {
         <Input type="file" accept=".json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
         <DialogContent>
             <DialogHeader>
-            <DialogTitle>Add New Contact</DialogTitle>
+            <DialogTitle className="text-primary">Add New Contact</DialogTitle>
             <DialogDescription>Enter a name for this contact. They will receive messages encrypted with the key from '{pendingContactKeyFile?.name}'.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-            <Label htmlFor="contact-name">Contact Name</Label>
+            <Label htmlFor="contact-name" className="text-primary">Contact Name</Label>
             <Input id="contact-name" value={contactName} onChange={e => setContactName(e.target.value)} placeholder="e.g., Alice" />
             </div>
             <DialogFooter>
