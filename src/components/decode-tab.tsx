@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { extractDataFromImage } from '@/lib/steganography';
+import { extractDataFromPng, extractDataFromGenericFile } from '@/lib/steganography';
 import { decryptSymmetric, decryptHybrid, importSigningKey, importEncryptionKey, verifySignature, arrayBufferToText, getPublicKeyHash, exportKeyJwk } from '@/lib/crypto';
 import { IdentityKeyPair } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -23,7 +23,7 @@ type DecodedData = {
 };
 
 export default function DecodeTab() {
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [stegoFile, setStegoFile] = useState<File | null>(null);
   const [password, setPassword] = useState('');
   const [decryptedDecoy, setDecryptedDecoy] = useState('');
   const [decryptedMessage, setDecryptedMessage] = useState('');
@@ -35,7 +35,7 @@ export default function DecodeTab() {
 
   const [identities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
 
-  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -43,8 +43,8 @@ export default function DecodeTab() {
   }, []);
 
   useEffect(() => {
-    const processImage = async () => {
-      if (!imageFile) return;
+    const processFile = async () => {
+      if (!stegoFile) return;
 
       setIsLoading(true);
       setError('');
@@ -55,7 +55,12 @@ export default function DecodeTab() {
       setPassword('');
 
       try {
-        const extractedBuffer = await extractDataFromImage(imageFile);
+        let extractedBuffer: ArrayBuffer;
+        if (stegoFile.type === 'image/png') {
+            extractedBuffer = await extractDataFromPng(stegoFile);
+        } else {
+            extractedBuffer = await extractDataFromGenericFile(stegoFile);
+        }
         
         if (extractedBuffer.byteLength <= SIGNATURE_LENGTH_BYTES) {
             throw new Error("Extracted data is too small to contain a signature.");
@@ -74,15 +79,15 @@ export default function DecodeTab() {
         
         if (verified) {
             setDecodedData(data);
-            toast({ title: "Success", description: "Image data extracted and signature verified." });
+            toast({ title: "Success", description: "File data extracted and signature verified." });
         } else {
             setError("Signature verification failed! The data may have been tampered with.");
-            toast({ variant: "destructive", title: "Verification Failed", description: "The image signature is invalid."})
+            toast({ variant: "destructive", title: "Verification Failed", description: "The file signature is invalid."})
         }
       } catch (err) {
         console.error(err);
         const errorMessage = (err as Error).message;
-        setError(`Failed to process image. Is this a valid steganographic image? Error: ${errorMessage}`);
+        setError(`Failed to process file. Is this a valid SteganoGuard file? Error: ${errorMessage}`);
         toast({ variant: "destructive", title: "Processing Error", description: errorMessage });
         setIsVerified(false);
       } finally {
@@ -90,9 +95,9 @@ export default function DecodeTab() {
       }
     };
     if (isMounted) {
-      processImage();
+      processFile();
     }
-  }, [imageFile, isMounted, toast]);
+  }, [stegoFile, isMounted, toast]);
 
   const handleDecoyDecrypt = async () => {
     if (!decodedData || !password) {
@@ -142,6 +147,7 @@ export default function DecodeTab() {
             if (myMessageData) {
                 try {
                     const myPrivateKey = await importEncryptionKey(identity.encryption.privateKey, ['deriveKey']);
+                    const ephemeralPublicKey = await importEncryptionKey(myMessageData.ephemeralPublicKey, []);
                     const decrypted = await decryptHybrid(myMessageData, myPrivateKey);
                     setDecryptedMessage(decrypted);
                     toast({ title: "Message Decrypted", description: `Your secret message was decrypted with identity: ${identity.name}.` });
@@ -156,7 +162,7 @@ export default function DecodeTab() {
         }
 
         if (!foundMessage) {
-            const finalError = decryptionError || "No message found for any of your identities in this image.";
+            const finalError = decryptionError || "No message found for any of your identities in this file.";
             setError(finalError);
             if(finalError) {
               toast({ variant: "destructive", title: "Decryption Failed", description: finalError });
@@ -178,22 +184,22 @@ export default function DecodeTab() {
     <Card>
       <CardHeader>
         <CardTitle>Decode & Verify</CardTitle>
-        <CardDescription>Upload an image to extract and decrypt hidden messages using your stored identities.</CardDescription>
+        <CardDescription>Upload a file to extract and decrypt hidden messages using your stored identities.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="image-upload">1. Upload Steganographic Image</Label>
-          <Input id="image-upload" type="file" accept="image/png" ref={imageInputRef} onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="hidden" />
-          <Button variant="outline" onClick={() => imageInputRef.current?.click()} className="w-full">
+          <Label htmlFor="stego-file-upload">1. Upload Steganographic File</Label>
+          <Input id="stego-file-upload" type="file" accept="image/png,audio/*,video/*,.pdf,.doc,.docx" ref={fileInputRef} onChange={(e) => setStegoFile(e.target.files?.[0] || null)} className="hidden" />
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
             <Upload className="w-4 h-4 mr-2" />
-            {imageFile ? imageFile.name : 'Select Image'}
+            {stegoFile ? stegoFile.name : 'Select File'}
           </Button>
         </div>
 
         {isLoading && !decodedData && (
             <div className="flex items-center justify-center space-x-2 py-4">
                 <Loader2 className="h-5 w-5 animate-spin" /> 
-                <span>Processing Image...</span>
+                <span>Processing File...</span>
             </div>
         )}
 

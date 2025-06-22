@@ -12,9 +12,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
-import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarning, Users, ShieldCheck } from 'lucide-react';
+import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarning, Users, ShieldCheck, FileDown } from 'lucide-react';
 import { encryptSymmetric, encryptHybrid, importSigningKey, signData, textToArrayBuffer, getPublicKeyHash, importEncryptionKey } from '@/lib/crypto';
-import { embedDataInImage } from '@/lib/steganography';
+import { embedDataInPng, embedDataInGenericFile } from '@/lib/steganography';
 
 const SIGNATURE_LENGTH_BYTES = 64;
 
@@ -27,7 +27,7 @@ export default function EncodeTab() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [result, setResult] = useState<{ url: string; fileName: string; isImage: boolean } | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   
   const [identities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
@@ -42,6 +42,17 @@ export default function EncodeTab() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    let currentUrl: string | null = result?.url || null;
+    let isObjectUrl = currentUrl?.startsWith('blob:') || false;
+    
+    return () => {
+        if (currentUrl && isObjectUrl) {
+            URL.revokeObjectURL(currentUrl);
+        }
+    };
+  }, [result]);
 
   const handleToggleRecipient = (contactId: string) => {
     const newSelection = new Set(selectedContactIds);
@@ -63,7 +74,7 @@ export default function EncodeTab() {
     if (!coverImage || !decoyMessage || !password || !secretMessage || selectedRecipients.length === 0) {
         let errorMsg = "Please complete all fields. Missing: ";
         const missing = [];
-        if (!coverImage) missing.push("cover image");
+        if (!coverImage) missing.push("cover file");
         if (!decoyMessage) missing.push("decoy message");
         if (!password) missing.push("password");
         if (!secretMessage) missing.push("secret message");
@@ -73,7 +84,7 @@ export default function EncodeTab() {
     }
     setIsLoading(true);
     setError('');
-    setResultImage(null);
+    setResult(null);
 
     try {
         const privateSigningKey = await importSigningKey(activeIdentity.signing.privateKey, 'sign');
@@ -103,12 +114,26 @@ export default function EncodeTab() {
         combinedBuffer.set(new Uint8Array(payloadBuffer), 0);
         combinedBuffer.set(new Uint8Array(signature), payloadBuffer.byteLength);
 
-        const stegoImageUrl = await embedDataInImage(coverImage, combinedBuffer.buffer);
-        setResultImage(stegoImageUrl);
+        if (coverImage.type === 'image/png') {
+            const stegoImageUrl = await embedDataInPng(coverImage, combinedBuffer.buffer);
+            setResult({
+                url: stegoImageUrl,
+                fileName: 'steganographic-image.png',
+                isImage: true,
+            });
+        } else {
+            const stegoBlob = await embedDataInGenericFile(coverImage, combinedBuffer.buffer);
+            const objectUrl = URL.createObjectURL(stegoBlob);
+            setResult({
+                url: objectUrl,
+                fileName: `stego-${coverImage.name}`,
+                isImage: false,
+            });
+        }
 
         toast({
             title: "Success!",
-            description: "Your message has been securely embedded in the image.",
+            description: "Your message has been securely embedded in the file.",
         });
 
     } catch (err) {
@@ -130,17 +155,17 @@ export default function EncodeTab() {
     <Card>
       <CardHeader>
         <CardTitle>Encode & Sign</CardTitle>
-        <CardDescription>Embed a secret message into an image, signed with your active identity.</CardDescription>
+        <CardDescription>Embed a secret message into a file, signed with your active identity.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
                 <h3 className="font-semibold text-lg">1. Inputs</h3>
                 <div className="space-y-2">
-                    <Label htmlFor="cover-image">Cover Image (.png)</Label>
-                    <Input id="cover-image" type="file" accept="image/png" ref={coverImageRef} onChange={(e) => setCoverImage(e.target.files?.[0] || null)} className="hidden"/>
+                    <Label htmlFor="cover-image">Cover File</Label>
+                    <Input id="cover-image" type="file" accept="image/png,audio/*,video/*,.pdf,.doc,.docx" ref={coverImageRef} onChange={(e) => setCoverImage(e.target.files?.[0] || null)} className="hidden"/>
                     <Button variant="outline" onClick={() => coverImageRef.current?.click()} className="w-full">
-                        <ImageIcon /> {coverImage ? coverImage.name : "Select Cover Image"}
+                        <ImageIcon /> {coverImage ? coverImage.name : "Select Cover File"}
                     </Button>
                 </div>
                  <div className="space-y-2">
@@ -223,18 +248,26 @@ export default function EncodeTab() {
             </Alert>
         )}
         
-        {resultImage && (
+        {result && (
             <div className="space-y-4 pt-4">
                 <h3 className="font-semibold text-lg">Result</h3>
                 <div className="border rounded-md p-4 flex flex-col items-center gap-4">
-                    <img src={resultImage} alt="Steganographic Result" className="max-w-full md:max-w-md rounded-md shadow-md"/>
+                    {result.isImage ? (
+                        <img src={result.url} alt="Steganographic Result" className="max-w-full md:max-w-md rounded-md shadow-md"/>
+                    ) : (
+                        <div className="text-center p-4 bg-muted rounded-lg w-full max-w-md">
+                            <FileDown className="w-12 h-12 mx-auto text-primary" />
+                            <p className="mt-2 font-semibold">File Ready for Download</p>
+                            <p className="text-sm text-muted-foreground truncate">{result.fileName}</p>
+                        </div>
+                    )}
                     <Button onClick={() => {
                         const a = document.createElement('a');
-                        a.href = resultImage;
-                        a.download = 'steganographic-image.png';
+                        a.href = result.url;
+                        a.download = result.fileName;
                         a.click();
                     }}>
-                        <Download /> Download Image
+                        <Download /> Download File
                     </Button>
                 </div>
             </div>

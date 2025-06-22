@@ -1,5 +1,8 @@
 
-const EOD_MARKER = new Uint8Array([0, 0, 0, 0, 255, 255, 255, 255]); // 8-byte end-of-data marker
+const PNG_EOD_MARKER = new Uint8Array([0, 0, 0, 0, 255, 255, 255, 255]); // 8-byte end-of-data marker for PNG LSB
+const GENERIC_EOD_MARKER = new Uint8Array([83, 84, 69, 71, 71, 85, 65, 82, 68]); // "STEGGUARD"
+
+// --- PNG LSB Steganography Functions ---
 
 async function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -25,16 +28,16 @@ function getContext(img: HTMLImageElement): CanvasRenderingContext2D {
   return ctx;
 }
 
-export async function embedDataInImage(imageFile: File, dataToEmbed: ArrayBuffer): Promise<string> {
+export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer): Promise<string> {
   const img = await loadImage(imageFile);
   const ctx = getContext(img);
   const imageData = ctx.getImageData(0, 0, img.width, img.height);
   const pixels = imageData.data;
   
   const dataLength = dataToEmbed.byteLength;
-  const fullPayload = new Uint8Array(dataLength + EOD_MARKER.length);
+  const fullPayload = new Uint8Array(dataLength + PNG_EOD_MARKER.length);
   fullPayload.set(new Uint8Array(dataToEmbed), 0);
-  fullPayload.set(EOD_MARKER, dataLength);
+  fullPayload.set(PNG_EOD_MARKER, dataLength);
 
   // Use LSB of 11 pixels for 32-bit length header (11 pixels * 3 channels/pixel = 33 bits available)
   const HEADER_PIXELS = 11;
@@ -79,7 +82,7 @@ export async function embedDataInImage(imageFile: File, dataToEmbed: ArrayBuffer
   return ctx.canvas.toDataURL('image/png');
 }
 
-export async function extractDataFromImage(imageFile: File): Promise<ArrayBuffer> {
+export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> {
   const img = await loadImage(imageFile);
   const ctx = getContext(img);
   const imageData = ctx.getImageData(0, 0, img.width, img.height);
@@ -113,7 +116,7 @@ export async function extractDataFromImage(imageFile: File): Promise<ArrayBuffer
     throw new Error("No data length found in image header or data is corrupted.");
   }
   
-  const totalBitsToExtract = (dataLength + EOD_MARKER.length) * 8;
+  const totalBitsToExtract = (dataLength + PNG_EOD_MARKER.length) * 8;
   const extractedBits: number[] = [];
   let payloadPixelIndexOffset = HEADER_PIXELS * 4;
   let payloadBitIndex = 0;
@@ -144,15 +147,66 @@ export async function extractDataFromImage(imageFile: File): Promise<ArrayBuffer
   const extractedBytes = new Uint8Array(allBytes);
   const eodIndex = dataLength;
   
-  if (eodIndex + EOD_MARKER.length > extractedBytes.length) {
+  if (eodIndex + PNG_EOD_MARKER.length > extractedBytes.length) {
     throw new Error("End-of-data marker not found. Extracted data is shorter than expected.");
   }
 
-  const foundEod = extractedBytes.slice(eodIndex, eodIndex + EOD_MARKER.length);
+  const foundEod = extractedBytes.slice(eodIndex, eodIndex + PNG_EOD_MARKER.length);
   
-  if (!EOD_MARKER.every((val, i) => val === foundEod[i])) {
+  if (!PNG_EOD_MARKER.every((val, i) => val === foundEod[i])) {
     throw new Error("End-of-data marker not found or corrupted. Data is likely invalid.");
   }
 
   return extractedBytes.slice(0, dataLength).buffer;
+}
+
+
+// --- Generic File Steganography (Appending) Functions ---
+
+export async function embedDataInGenericFile(coverFile: File, dataToEmbed: ArrayBuffer): Promise<Blob> {
+  const coverFileBuffer = await coverFile.arrayBuffer();
+  
+  const dataLength = dataToEmbed.byteLength;
+  const dataLengthBuffer = new ArrayBuffer(8); // 64-bit integer for length
+  new DataView(dataLengthBuffer).setBigUint64(0, BigInt(dataLength), false); // Use BigUint64, network byte order
+
+  const newFileBlob = new Blob([
+    coverFileBuffer,
+    dataToEmbed,
+    dataLengthBuffer,
+    GENERIC_EOD_MARKER
+  ]);
+
+  return newFileBlob;
+}
+
+export async function extractDataFromGenericFile(stegoFile: File): Promise<ArrayBuffer> {
+    const stegoFileBuffer = await stegoFile.arrayBuffer();
+    const eodMarkerLength = GENERIC_EOD_MARKER.length;
+    const lengthMarkerLength = 8;
+    const footerLength = eodMarkerLength + lengthMarkerLength;
+
+    if (stegoFileBuffer.byteLength < footerLength) {
+        throw new Error("File is too small to contain steganographic data.");
+    }
+
+    const fileFooter = stegoFileBuffer.slice(-footerLength);
+    const potentialEodMarker = new Uint8Array(fileFooter.slice(-eodMarkerLength));
+
+    if (!GENERIC_EOD_MARKER.every((val, i) => val === potentialEodMarker[i])) {
+        throw new Error("Steganographic marker not found. This does not appear to be a valid SteganoGuard file.");
+    }
+
+    const lengthView = new DataView(fileFooter.slice(0, lengthMarkerLength));
+    const dataLength = Number(lengthView.getBigUint64(0, false));
+
+    const dataEnd = stegoFileBuffer.byteLength - footerLength;
+    const dataStart = dataEnd - dataLength;
+
+    if (dataStart < 0) {
+        throw new Error("Invalid data length in file footer. The file may be corrupt.");
+    }
+
+    const extractedData = stegoFileBuffer.slice(dataStart, dataEnd);
+    return extractedData;
 }
