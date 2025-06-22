@@ -89,8 +89,10 @@ export default function DecodeTab() {
         setIsLoading(false);
       }
     };
-    processImage();
-  }, [imageFile, toast]);
+    if (isMounted) {
+      processImage();
+    }
+  }, [imageFile, isMounted, toast]);
 
   const handleDecoyDecrypt = async () => {
     if (!decodedData || !password) {
@@ -131,8 +133,7 @@ export default function DecodeTab() {
         let foundMessage = false;
         for (const identity of identities) {
             try {
-                const myPublicKey = await importEncryptionKey(identity.encryption.publicKey, []);
-                const myKeyHash = await getPublicKeyHash(await exportKeyJwk(myPublicKey));
+                const myKeyHash = await getPublicKeyHash(identity.encryption.publicKey);
                 const myMessageData = decodedData.messages.find(m => m.recipientPublicKeyHash === myKeyHash);
 
                 if (myMessageData) {
