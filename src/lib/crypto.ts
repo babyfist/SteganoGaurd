@@ -33,16 +33,15 @@ export async function exportKeyJwk(key: CryptoKey) {
 
 // Hashing
 export async function getPublicKeyHash(publicKeyJwk: JsonWebKey): Promise<string> {
-    const keyString = JSON.stringify(getCanonicalJwk(publicKeyJwk));
+    // Manually construct a string from the essential components in a fixed order.
+    // This avoids any ambiguity from JSON.stringify's property ordering.
+    if (!publicKeyJwk.crv || !publicKeyJwk.kty || !publicKeyJwk.x || !publicKeyJwk.y) {
+        throw new Error("Cannot hash JWK: missing one or more required properties (crv, kty, x, y).");
+    }
+    const keyString = `${publicKeyJwk.crv}|${publicKeyJwk.kty}|${publicKeyJwk.x}|${publicKeyJwk.y}`;
     const keyBuffer = textToArrayBuffer(keyString);
     const hashBuffer = await crypto.subtle.digest('SHA-256', keyBuffer);
     return bufferToHex(hashBuffer);
-}
-
-// Ensure JWK properties are in a consistent order for hashing
-function getCanonicalJwk(jwk: JsonWebKey): object {
-    const { crv, kty, x, y } = jwk;
-    return { crv, kty, x, y };
 }
 
 // Signature
