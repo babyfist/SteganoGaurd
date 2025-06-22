@@ -43,9 +43,15 @@ export async function embedDataInImage(imageFile: File, dataToEmbed: ArrayBuffer
     throw new Error(`Image is too small. Needs space for ${requiredPixels} pixels, but has only ${maxPixels}.`);
   }
   
-  pixels[0] = (dataLength >> 16) & 0xFF;
-  pixels[1] = (dataLength >> 8) & 0xFF;
-  pixels[2] = dataLength & 0xFF;
+  // Use 32 bits (4 bytes) for length, stored in the first pixel's RGBA channels
+  const view = new DataView(new ArrayBuffer(4));
+  view.setUint32(0, dataLength, false); // false for big-endian
+  const lengthBytes = new Uint8Array(view.buffer);
+  
+  pixels[0] = lengthBytes[0];
+  pixels[1] = lengthBytes[1];
+  pixels[2] = lengthBytes[2];
+  pixels[3] = lengthBytes[3];
   
   let pixelIndex = 4;
   let bitIndex = 0;
@@ -56,7 +62,10 @@ export async function embedDataInImage(imageFile: File, dataToEmbed: ArrayBuffer
       const bit = (byte >> (7 - j)) & 1;
       const channelIndex = bitIndex % 3;
       
+      // Ensure pixel is opaque before modifying to avoid alpha premultiplication issues
+      pixels[pixelIndex + 3] = 255;
       pixels[pixelIndex + channelIndex] = (pixels[pixelIndex + channelIndex] & 0xFE) | bit;
+      
       bitIndex++;
       
       if (bitIndex % 3 === 0) {
@@ -75,11 +84,12 @@ export async function extractDataFromImage(imageFile: File): Promise<ArrayBuffer
   const imageData = ctx.getImageData(0, 0, img.width, img.height);
   const pixels = imageData.data;
 
-  const dataLength = (pixels[0] << 16) | (pixels[1] << 8) | pixels[2];
+  // Extract 32-bit length from the first pixel's RGBA values
+  const lengthBytes = new Uint8Array([pixels[0], pixels[1], pixels[2], pixels[3]]);
+  const view = new DataView(lengthBytes.buffer);
+  const dataLength = view.getUint32(0, false); // false for big-endian
 
-  // The maximum number of bytes that can be stored is (width * height * 3 bits) / 8 bits/byte
-  // which is ( (pixels.length / 4) * 3 ) / 8 = pixels.length * 3 / 32
-  const maxStorableBytes = Math.floor((pixels.length / 4 * 3) / 8);
+  const maxStorableBytes = Math.floor(((pixels.length / 4) - 1) * 3 / 8);
 
   if (dataLength === 0 || isNaN(dataLength) || dataLength > maxStorableBytes ) {
     throw new Error("No data length found in image header or data is corrupted.");
