@@ -84,9 +84,17 @@ export default function KeyTab() {
       const importedData = JSON.parse(fileContent);
 
       const identitiesToImport: IdentityKeyPair[] = Array.isArray(importedData) ? importedData : [importedData];
+      
+      const existingIds = new Set(identities.map(i => i.id));
       const validNewIdentities: IdentityKeyPair[] = [];
+      let skippedCount = 0;
 
       for (const keyData of identitiesToImport) {
+          if (existingIds.has(keyData.id)) {
+            skippedCount++;
+            continue;
+          }
+
           if (!keyData.signing?.privateKey || !keyData.encryption?.privateKey) {
             toast({ variant: 'destructive', title: "Skipping Invalid Identity", description: `Identity "${keyData.name || 'Unknown'}" is missing private keys.` });
             continue;
@@ -113,9 +121,15 @@ export default function KeyTab() {
       
       if (validNewIdentities.length > 0) {
         setIdentities([...identities, ...validNewIdentities]);
-        toast({ title: "Success", description: `${validNewIdentities.length} identity/identities imported.` });
-      } else {
-        toast({ variant: 'destructive', title: "Import Failed", description: "No valid identities found in the file." });
+        toast({ title: "Success", description: `${validNewIdentities.length} new identity/identities imported.` });
+      }
+      
+      if (skippedCount > 0) {
+        toast({ title: "Import Notice", description: `${skippedCount} identity/identities were skipped as they already exist.` });
+      }
+      
+      if (validNewIdentities.length === 0 && skippedCount === 0) {
+        toast({ variant: 'destructive', title: "Import Failed", description: "No valid new identities found in the file." });
       }
       
     } catch (err) {
@@ -220,6 +234,13 @@ export default function KeyTab() {
       }
   };
 
+  const handleExportContacts = (identityId: string) => {
+      const identity = identities.find(i => i.id === identityId);
+      if (identity && identity.contacts && identity.contacts.length > 0) {
+          downloadJson(identity.contacts, `steganoguard_contacts_${identity.name.replace(/\s/g, '_')}.json`);
+      }
+  };
+
   const handleExportAllIdentities = () => {
       if (identities.length > 0) {
           const date = new Date().toISOString().split('T')[0];
@@ -283,6 +304,11 @@ export default function KeyTab() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => exportIdentity(identity.id)}>
                                     <Download className="mr-2" /> Backup Full Identity
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                    onClick={() => handleExportContacts(identity.id)}
+                                    disabled={!identity.contacts || identity.contacts.length === 0}>
+                                    <Users className="mr-2" /> Export Contacts
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <AlertDialog>
@@ -392,5 +418,3 @@ export default function KeyTab() {
     </>
   );
 }
-
-    
