@@ -30,9 +30,9 @@ export default function EncodeTab() {
   
   const [identities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
   const [activeIdentityId] = useLocalStorage<string | null>('activeKeyId', null);
-  const [contacts] = useLocalStorage<Contact[]>('contacts', []);
   
   const activeIdentity = identities.find(id => id.id === activeIdentityId);
+  const contacts = activeIdentity?.contacts || [];
 
   const coverImageRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -52,16 +52,19 @@ export default function EncodeTab() {
   };
   
   const handleEncode = async () => {
+    if (!activeIdentity) {
+      setError("Please set an active identity in Key Management.");
+      return;
+    }
     const selectedRecipients = contacts.filter(c => selectedContactIds.has(c.id));
 
-    if (!coverImage || !decoyMessage || !password || !secretMessage || selectedRecipients.length === 0 || !activeIdentity) {
+    if (!coverImage || !decoyMessage || !password || !secretMessage || selectedRecipients.length === 0) {
         let errorMsg = "Please complete all fields. Missing: ";
         const missing = [];
         if (!coverImage) missing.push("cover image");
         if (!decoyMessage) missing.push("decoy message");
         if (!password) missing.push("password");
         if (!secretMessage) missing.push("secret message");
-        if (!activeIdentity) missing.push("an active identity (set in Key Mgmt)");
         if (selectedRecipients.length === 0) missing.push("at least one recipient");
         setError(errorMsg + missing.join(', ') + '.');
         return;
@@ -183,11 +186,17 @@ export default function EncodeTab() {
                             <Loader2 className="h-4 w-4 animate-spin" />
                             <AlertTitle>Loading Contacts...</AlertTitle>
                          </Alert>
+                     ) : !activeIdentity ? (
+                        <Alert variant="destructive">
+                            <Users className="h-4 w-4" />
+                            <AlertTitle>Set Active Identity</AlertTitle>
+                            <AlertDescription>Select an active identity to see its contacts.</AlertDescription>
+                        </Alert>
                      ) : contacts.length === 0 ? (
                         <Alert>
                             <Users className="h-4 w-4" />
                             <AlertTitle>No Contacts Found</AlertTitle>
-                            <AlertDescription>Go to Key Management to add contacts.</AlertDescription>
+                            <AlertDescription>Go to Key Management to add contacts to your active identity.</AlertDescription>
                         </Alert>
                      ) : (
                         <div className="space-y-2 pt-2 border rounded-md p-3 max-h-48 overflow-y-auto">

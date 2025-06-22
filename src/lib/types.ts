@@ -16,6 +16,7 @@ export type IdentityKeyPair = {
   description: string;
   signing: SigningKeyPairJwk;
   encryption: EncryptionKeyPairJwk;
+  contacts: Contact[];
 };
 
 // Represents a contact's public information for sending messages
