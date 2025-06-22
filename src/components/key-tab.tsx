@@ -8,14 +8,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
-import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, downloadJson } from '@/lib/crypto';
+import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, downloadJson, importSigningKey, importEncryptionKey } from '@/lib/crypto';
 import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Share2, Pencil } from 'lucide-react';
 
 export default function KeyTab() {
@@ -36,14 +36,8 @@ export default function KeyTab() {
   const { toast } = useToast();
 
   useEffect(() => {
-     // One-time data migration for users from the old version
-    if (isMounted) return;
-    const needsMigration = identities.some(id => !id.contacts);
-    if(needsMigration) {
-      setIdentities(identities.map(id => ({ ...id, contacts: id.contacts || [] })));
-    }
     setIsMounted(true);
-  }, [identities, isMounted, setIdentities]);
+  }, []);
 
   const handleGenerateIdentity = async () => {
     setIsLoading(true);
@@ -71,7 +65,7 @@ export default function KeyTab() {
 
       const updatedIdentities = [...identities, newIdentity];
       setIdentities(updatedIdentities);
-      if (identities.length === 0) {
+      if (identities.length === 0 || !activeIdentityId) {
         setActiveIdentityId(newIdentity.id);
       }
       toast({ title: "Success", description: "New identity generated and saved." });
@@ -87,26 +81,50 @@ export default function KeyTab() {
     setIsLoading(true);
     try {
       const fileContent = await file.text();
-      const keyData = JSON.parse(fileContent);
+      const importedData = JSON.parse(fileContent);
 
-      if (!keyData.signing?.privateKey || !keyData.encryption?.privateKey) {
-        throw new Error("Invalid identity file. Missing private keys.");
+      const identitiesToImport: IdentityKeyPair[] = Array.isArray(importedData) ? importedData : [importedData];
+      const validNewIdentities: IdentityKeyPair[] = [];
+
+      for (const keyData of identitiesToImport) {
+          if (!keyData.signing?.privateKey || !keyData.encryption?.privateKey) {
+            toast({ variant: 'destructive', title: "Skipping Invalid Identity", description: `Identity "${keyData.name || 'Unknown'}" is missing private keys.` });
+            continue;
+          }
+          
+          try {
+            await importSigningKey(keyData.signing.privateKey, 'sign');
+            await importEncryptionKey(keyData.encryption.privateKey, ['deriveKey']);
+          } catch (validationError) {
+             toast({ variant: 'destructive', title: "Skipping Invalid Key", description: `Could not validate keys for identity "${keyData.name || 'Unknown'}". It may be corrupted.` });
+            continue;
+          }
+        
+          const newIdentity: IdentityKeyPair = {
+            id: keyData.id || uuidv4(),
+            name: keyData.name || `Imported Identity - ${file.name}`,
+            description: keyData.description || "Imported SteganoGuard Identity",
+            signing: keyData.signing,
+            encryption: keyData.encryption,
+            contacts: keyData.contacts || [],
+          };
+          validNewIdentities.push(newIdentity);
       }
-
-      const newIdentity: IdentityKeyPair = {
-        id: uuidv4(),
-        name: keyData.name || `Imported Identity - ${file.name}`,
-        description: keyData.description || "Imported SteganoGuard Identity",
-        signing: keyData.signing,
-        encryption: keyData.encryption,
-        contacts: keyData.contacts || [],
-      };
-      setIdentities([...identities, newIdentity]);
-      toast({ title: "Success", description: "Identity imported." });
+      
+      if (validNewIdentities.length > 0) {
+        setIdentities([...identities, ...validNewIdentities]);
+        toast({ title: "Success", description: `${validNewIdentities.length} identity/identities imported.` });
+      } else {
+        toast({ variant: 'destructive', title: "Import Failed", description: "No valid identities found in the file." });
+      }
+      
     } catch (err) {
-      toast({ variant: 'destructive', title: "Import Error", description: (err as Error).message });
+      toast({ variant: 'destructive', title: "Import Error", description: `Could not read or parse the file. ${(err as Error).message}` });
     } finally {
       setIsLoading(false);
+      if (importIdentityRef.current) {
+        importIdentityRef.current.value = "";
+      }
     }
   };
 
@@ -144,7 +162,7 @@ export default function KeyTab() {
 
         setIdentities(identities.map(id => {
             if (id.id === addingContactTo) {
-                return { ...id, contacts: [...id.contacts, newContact] };
+                return { ...id, contacts: [...(id.contacts || []), newContact] };
             }
             return id;
         }));
@@ -157,6 +175,9 @@ export default function KeyTab() {
         setAddingContactTo(null);
         setContactName('');
         setPendingContactKeyFile(null);
+        if (addContactRef.current) {
+          addContactRef.current.value = "";
+        }
     }
   };
 
@@ -199,6 +220,14 @@ export default function KeyTab() {
       }
   };
 
+  const handleExportAllIdentities = () => {
+      if (identities.length > 0) {
+          const date = new Date().toISOString().split('T')[0];
+          downloadJson(identities, `steganoguard_all-identities-backup_${date}.json`);
+          toast({ title: "All Identities Exported", description: "A backup file with all your identities has been downloaded." });
+      }
+  };
+
   return (
     <>
       <Card>
@@ -226,45 +255,55 @@ export default function KeyTab() {
               <Accordion type="single" collapsible className="w-full">
                 {identities.map(identity => (
                   <AccordionItem value={identity.id} key={identity.id} className="border rounded-lg mb-2 bg-background/50">
-                    <AccordionTrigger className="p-4 hover:no-underline">
-                        <div className="flex items-center gap-3">
-                            {activeIdentityId === identity.id ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <div className="w-5 h-5"/>}
-                            <span className="font-medium text-left">{identity.name}</span>
-                        </div>
-                    </AccordionTrigger>
+                    <div className="flex items-center justify-between p-4 hover:no-underline">
+                        <AccordionTrigger className="p-0 flex-1">
+                            <div className="flex items-center gap-3">
+                                {activeIdentityId === identity.id ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <div className="w-5 h-5"/>}
+                                <span className="font-medium text-left">{identity.name}</span>
+                            </div>
+                        </AccordionTrigger>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {activeIdentityId !== identity.id && (
+                                    <DropdownMenuItem onClick={() => setActiveIdentityId(identity.id)}>
+                                        <CheckCircle2 className="mr-2" /> Set Active
+                                    </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => { setEditingIdentity(identity); setNewIdentityName(identity.name); }}>
+                                    <Pencil className="mr-2" /> Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => exportPublicKeys(identity.id)}>
+                                    <Share2 className="mr-2" /> Share Public Key
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => exportIdentity(identity.id)}>
+                                    <Download className="mr-2" /> Backup Full Identity
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-500 focus:text-red-500">
+                                            <Trash2 className="mr-2"/> Delete...
+                                        </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the identity "{identity.name}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => deleteIdentity(identity.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                     <AccordionContent className="p-4 pt-0">
                       <div className="space-y-4 pl-8">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {activeIdentityId !== identity.id && <Button variant="outline" size="sm" onClick={() => setActiveIdentityId(identity.id)}>Set Active</Button>}
-                             <Button variant="secondary" size="sm" onClick={() => { setEditingIdentity(identity); setNewIdentityName(identity.name); }}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Rename
-                            </Button>
-                            <Button variant="secondary" size="sm" onClick={() => exportPublicKeys(identity.id)}>
-                                <Share2 className="mr-2 h-4 w-4" />
-                                Share Public Key
-                            </Button>
-                            <Button variant="secondary" size="sm" onClick={() => exportIdentity(identity.id)}>
-                                <Download className="mr-2 h-4 w-4" />
-                                Backup Full Identity
-                            </Button>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="sm">
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Delete...
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the identity "{identity.name}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => deleteIdentity(identity.id)}>Delete</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-
                         <h4 className="font-semibold flex items-center gap-2 pt-4 border-t"><Users className="h-4 w-4" /> Contacts for this Identity</h4>
                         <div className="space-y-2">
                           {identity.contacts?.length === 0 && <p className="text-sm text-muted-foreground">No contacts found for this identity.</p>}
@@ -277,14 +316,14 @@ export default function KeyTab() {
                                       <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will delete "{contact.name}" from your contacts for this identity.</AlertDialogDescription></AlertDialogHeader>
                                       <AlertDialogFooter>
                                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                          <AlertDialogAction onClick={() => deleteContact(identity.id, contact.id)}>Delete</AlertDialogAction>
+                                          <AlertDialogAction onClick={() => deleteContact(identity.id, contact.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
                                       </AlertDialogFooter>
                                   </AlertDialogContent>
                                 </AlertDialog>
                             </div>
                           ))}
                         </div>
-                        <Button variant="secondary" size="sm" onClick={() => { setAddingContactTo(identity.id); addContactRef.current?.click(); }}>
+                        <Button variant="secondary" size="sm" onClick={() => { setAddingContactTo(identity.id); }}>
                           <UserPlus className="mr-2 h-4 w-4" /> Add Contact
                         </Button>
                       </div>
@@ -292,10 +331,13 @@ export default function KeyTab() {
                   </AccordionItem>
                 ))}
               </Accordion>
-              <div className="flex items-center gap-2 mt-4">
+              <div className="flex items-center gap-2 mt-4 flex-wrap">
                 <Button onClick={handleGenerateIdentity} disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin" /> : <KeyRound className="mr-2" />} Generate New Identity</Button>
                 <Input type="file" accept=".json" className="hidden" ref={importIdentityRef} onChange={e => handleImportIdentity(e.target.files?.[0] || null)} />
                 <Button variant="secondary" onClick={() => importIdentityRef.current?.click()}><Upload className="mr-2" /> Import Identity</Button>
+                <Button variant="secondary" onClick={handleExportAllIdentities} disabled={!isMounted || identities.length === 0}>
+                    <Download className="mr-2 h-4 w-4" /> Export All
+                </Button>
               </div>
             </>
           )}
@@ -321,23 +363,34 @@ export default function KeyTab() {
       </Dialog>
       
       {/* Add Contact Dialog */}
-       <Dialog open={!!addingContactTo && !!pendingContactKeyFile} onOpenChange={(isOpen) => { if(!isOpen) { setAddingContactTo(null); setContactName(''); setPendingContactKeyFile(null); }}}>
-        <Input type="file" accept=".json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
+       <Dialog open={!!addingContactTo} onOpenChange={(isOpen) => { if(!isOpen) { setAddingContactTo(null); setContactName(''); setPendingContactKeyFile(null); if (addContactRef.current) addContactRef.current.value = ""; }}}>
         <DialogContent>
             <DialogHeader>
             <DialogTitle className="text-primary">Add New Contact</DialogTitle>
-            <DialogDescription>Enter a name for this contact. They will receive messages encrypted with the key from '{pendingContactKeyFile?.name}'.</DialogDescription>
+            <DialogDescription>Enter a name for this contact and select their public key file. The key file should be one that they have shared with you.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-            <Label htmlFor="contact-name" className="text-primary">Contact Name</Label>
-            <Input id="contact-name" value={contactName} onChange={e => setContactName(e.target.value)} placeholder="e.g., Alice" />
+              <div className="space-y-2">
+                <Label htmlFor="contact-name" className="text-primary">Contact Name</Label>
+                <Input id="contact-name" value={contactName} onChange={e => setContactName(e.target.value)} placeholder="e.g., Alice" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact-key-file" className="text-primary">Contact Public Key File</Label>
+                <Input type="file" accept=".json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
+                 <Button variant="outline" className="w-full" onClick={() => addContactRef.current?.click()}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    {pendingContactKeyFile ? pendingContactKeyFile.name : "Select key file..."}
+                 </Button>
+              </div>
             </div>
             <DialogFooter>
                 <DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose>
-                <Button type="button" onClick={handleAddContact} disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin"/> : 'Save Contact'}</Button>
+                <Button type="button" onClick={handleAddContact} disabled={isLoading || !contactName || !pendingContactKeyFile}>{isLoading ? <Loader2 className="animate-spin"/> : 'Save Contact'}</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
+
+    
