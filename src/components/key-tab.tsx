@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
-import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, downloadJson, importSigningKey, importEncryptionKey } from '@/lib/crypto';
+import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, downloadJson, importSigningKey, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
 import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Share2, Pencil } from 'lucide-react';
 
 export default function KeyTab() {
@@ -163,15 +163,12 @@ export default function KeyTab() {
         const fileContent = await pendingContactKeyFile.text();
         const keyData = JSON.parse(fileContent);
 
-        if (!keyData.signing?.publicKey || !keyData.encryption?.publicKey) {
-            throw new Error("Invalid key file. Must contain public signing and encryption keys.");
-        }
+        const publicKeys = await validatePublicKeys(keyData);
 
         const newContact: Contact = {
             id: uuidv4(),
             name: contactName.trim(),
-            signingPublicKey: keyData.signing.publicKey,
-            encryptionPublicKey: keyData.encryption.publicKey,
+            ...publicKeys,
         };
 
         setIdentities(identities.map(id => {

@@ -165,3 +165,17 @@ export function downloadJson(data: object, filename: string) {
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
 }
+
+export async function validatePublicKeys(keyData: any): Promise<{ signingPublicKey: JsonWebKey, encryptionPublicKey: JsonWebKey }> {
+    if (!keyData.signing?.publicKey || !keyData.encryption?.publicKey) {
+        throw new Error("Invalid key file. Must contain public signing and encryption keys.");
+    }
+    // These will throw if keys are invalid/malformed
+    await importSigningKey(keyData.signing.publicKey, 'verify');
+    await importEncryptionKey(keyData.encryption.publicKey, []);
+
+    return {
+        signingPublicKey: keyData.signing.publicKey,
+        encryptionPublicKey: keyData.encryption.publicKey,
+    };
+}
