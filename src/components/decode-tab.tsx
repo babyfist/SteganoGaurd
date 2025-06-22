@@ -27,6 +27,7 @@ export default function DecodeTab() {
   const [password, setPassword] = useState('');
   const [decryptedDecoy, setDecryptedDecoy] = useState('');
   const [decryptedMessage, setDecryptedMessage] = useState('');
+  const [decryptionIdentityName, setDecryptionIdentityName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [decodedData, setDecodedData] = useState<DecodedData | null>(null);
@@ -51,6 +52,7 @@ export default function DecodeTab() {
       setDecodedData(null);
       setDecryptedDecoy('');
       setDecryptedMessage('');
+      setDecryptionIdentityName('');
       setIsVerified(null);
       setPassword('');
 
@@ -135,6 +137,7 @@ export default function DecodeTab() {
     setIsLoading(true);
     setError('');
     setDecryptedMessage('');
+    setDecryptionIdentityName('');
 
     try {
         let foundMessage = false;
@@ -150,6 +153,7 @@ export default function DecodeTab() {
                     const ephemeralPublicKey = await importEncryptionKey(myMessageData.ephemeralPublicKey, []);
                     const decrypted = await decryptHybrid(myMessageData, myPrivateKey);
                     setDecryptedMessage(decrypted);
+                    setDecryptionIdentityName(identity.name);
                     toast({ title: "Message Decrypted", description: `Your secret message was decrypted with identity: ${identity.name}.` });
                     foundMessage = true;
                     decryptionError = ''; // Clear error on success
@@ -247,6 +251,11 @@ export default function DecodeTab() {
                 {decryptedMessage && (
                   <Alert>
                     <AlertTitle>Decrypted Secret Message</AlertTitle>
+                     {decryptionIdentityName && (
+                        <p className="text-sm text-muted-foreground mb-2">
+                            Decrypted using identity: <span className="font-semibold text-primary">{decryptionIdentityName}</span>
+                        </p>
+                    )}
                     <AlertDescription className="break-words select-all">{decryptedMessage}</AlertDescription>
                   </Alert>
                 )}
