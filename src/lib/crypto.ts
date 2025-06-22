@@ -117,7 +117,7 @@ export async function encryptHybrid(plaintext: string, recipientPublicKey: Crypt
 }
 
 export async function decryptHybrid(encrypted: { ephemeralPublicKey: JsonWebKey, iv: string, ciphertext: string }, myPrivateKey: CryptoKey): Promise<string> {
-    const ephemeralPublicKey = await importEncryptionKey(encrypted.ephemeralPublicKey);
+    const ephemeralPublicKey = await importEncryptionKey(encrypted.ephemeralPublicKey, []);
     const sharedSecret = await crypto.subtle.deriveKey(
         { name: 'ECDH', public: ephemeralPublicKey },
         myPrivateKey,
