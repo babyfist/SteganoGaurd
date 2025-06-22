@@ -144,17 +144,13 @@ export function textToArrayBuffer(text: string): ArrayBuffer {
 }
 
 function bufferToBase64(buffer: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  return Buffer.from(buffer).toString('base64');
 }
 
 function base64ToBuffer(base64: string): ArrayBuffer {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
+  const buf = Buffer.from(base64, 'base64');
+  // The buffer may be a view on a larger ArrayBuffer, so we need to slice it
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 }
 
 function bufferToHex(buffer: ArrayBuffer): string {
