@@ -14,7 +14,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Upload, KeyRound, Lock, ShieldCheck, FileWarning, Loader2, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
-const SIGNATURE_LENGTH_BYTES = 256; // Ed25519 signatures are 64 bytes, but ECDSA can be larger. 256 is safe.
+const SIGNATURE_LENGTH_BYTES = 64; // Ed25519 signatures are always 64 bytes long.
 
 type DecodedData = {
   senderPublicKey?: JsonWebKey;
@@ -320,3 +320,5 @@ export default function DecodeTab() {
     </Card>
   );
 }
+
+    
