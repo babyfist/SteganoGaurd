@@ -22,12 +22,18 @@ type DecodedData = {
   messages: { recipientPublicKeyHash: string; ephemeralPublicKey: JsonWebKey; iv: string; ciphertext:string; }[];
 };
 
+// New type for storing multiple decryption results
+type DecryptionResult = {
+  identityName: string;
+  message: string;
+};
+
 export default function DecodeTab() {
   const [stegoFile, setStegoFile] = useState<File | null>(null);
   const [password, setPassword] = useState('');
   const [decryptedDecoy, setDecryptedDecoy] = useState('');
-  const [decryptedMessage, setDecryptedMessage] = useState('');
-  const [decryptionIdentityName, setDecryptionIdentityName] = useState('');
+  // New state for multiple results
+  const [decryptionResults, setDecryptionResults] = useState<DecryptionResult[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [decodedData, setDecodedData] = useState<DecodedData | null>(null);
@@ -51,8 +57,7 @@ export default function DecodeTab() {
       setError('');
       setDecodedData(null);
       setDecryptedDecoy('');
-      setDecryptedMessage('');
-      setDecryptionIdentityName('');
+      setDecryptionResults([]); // Clear previous results
       setSignatureState(null);
       setPassword('');
 
@@ -140,6 +145,7 @@ export default function DecodeTab() {
     }
   };
 
+  // Modified to check all identities and collect all results
   const handleMessageDecrypt = async () => {
     if (!decodedData) {
       setError("Please upload and process a file first.");
@@ -155,12 +161,12 @@ export default function DecodeTab() {
     }
     setIsLoading(true);
     setError('');
-    setDecryptedMessage('');
-    setDecryptionIdentityName('');
+    setDecryptionResults([]);
 
     try {
-        let foundMessage = false;
-        let decryptionError = '';
+        let foundAnyMessage = false;
+        let localDecryptionError = '';
+        const successfulDecryptions: DecryptionResult[] = [];
 
         for (const identity of identities) {
             const myPublicKeyJwk = identity.encryption.publicKey;
@@ -169,28 +175,30 @@ export default function DecodeTab() {
             const myMessageData = decodedData.messages.find(m => m.recipientPublicKeyHash === myKeyHash);
 
             if (myMessageData) {
+                foundAnyMessage = true;
                 try {
-                    const myPrivateKey = await importEncryptionKey(identity.encryption.privateKey, ['deriveKey']);
+                    const myPrivateKey = await importEncryptionKey(identity.encryption.privateKey, []);
                     const decrypted = await decryptHybrid(myMessageData, myPrivateKey);
-                    setDecryptedMessage(decrypted);
-                    setDecryptionIdentityName(identity.name);
-                    toast({ title: "Message Decrypted", description: `Your secret message was decrypted with identity: ${identity.name}.` });
-                    foundMessage = true;
-                    decryptionError = '';
-                    break;
+                    successfulDecryptions.push({ identityName: identity.name, message: decrypted });
                 } catch (e) {
                     console.error(`Decryption failed for identity "${identity.name}":`, e);
-                    decryptionError = `Found a message for identity "${identity.name}", but it could not be decrypted. The key may be incorrect or the data corrupted.`;
+                    localDecryptionError = `Found a message for identity "${identity.name}", but it could not be decrypted. The key may be incorrect or the data corrupted.`;
                 }
             }
         }
+        
+        setDecryptionResults(successfulDecryptions);
 
-        if (!foundMessage) {
-            const finalError = decryptionError || "No message found for any of your identities in this file.";
-            setError(finalError);
-            if(finalError) {
-              toast({ variant: "destructive", title: "Decryption Failed", description: finalError });
-            }
+        if (successfulDecryptions.length > 0) {
+            toast({ title: "Decryption Complete", description: `Successfully decrypted ${successfulDecryptions.length} message(s).` });
+        }
+        
+        if (!foundAnyMessage) {
+            setError("No message found for any of your identities in this file.");
+        } else if (localDecryptionError) {
+             // If we found at least one message but couldn't decrypt it, show an error.
+            setError(localDecryptionError);
+            toast({ variant: "destructive", title: "Decryption Issue", description: localDecryptionError });
         }
 
     } catch (err) {
@@ -287,21 +295,29 @@ export default function DecodeTab() {
                 <h3 className="font-semibold text-lg">3. Decrypt Your Message</h3>
                  <p className="text-sm text-muted-foreground">The app will automatically try all of your saved identities to find and decrypt your message.</p>
                 <Button onClick={handleMessageDecrypt} disabled={isLoading || signatureState === 'invalid' || !isMounted || identities.length === 0} className="w-full">
-                   {isLoading && !decryptedMessage ? <Loader2 className="animate-spin" /> : <Lock />}
+                   {isLoading && decryptionResults.length === 0 ? <Loader2 className="animate-spin" /> : <Lock />}
                   Decrypt Message
                 </Button>
                  {!isMounted ? (
                      <Alert><Loader2 className="h-4 w-4 animate-spin" /> <AlertDescription>Loading identities...</AlertDescription></Alert>
                  ) : identities.length === 0 && <Alert variant="destructive"><AlertDescription>No identities found. Add one in the Key Management tab.</AlertDescription></Alert>}
-                {decryptedMessage && (
+                
+                {/* Modified JSX to render multiple results */}
+                {decryptionResults.length > 0 && (
                   <Alert>
-                    <AlertTitle>Decrypted Secret Message</AlertTitle>
-                     {decryptionIdentityName && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                            Decrypted using identity: <span className="font-semibold text-primary">{decryptionIdentityName}</span>
-                        </p>
-                    )}
-                    <AlertDescription className="break-words select-all">{decryptedMessage}</AlertDescription>
+                    <AlertTitle>Decrypted Secret Message(s)</AlertTitle>
+                    <AlertDescription asChild>
+                       <div className="space-y-3 mt-2">
+                        {decryptionResults.map((result, index) => (
+                            <div key={index} className="border-t pt-3 first:border-t-0 first:pt-0">
+                                <p className="text-sm text-muted-foreground mb-1">
+                                    Decrypted using identity: <span className="font-semibold text-primary">{result.identityName}</span>
+                                </p>
+                                <p className="break-words select-all text-foreground">{result.message}</p>
+                            </div>
+                        ))}
+                       </div>
+                    </AlertDescription>
                   </Alert>
                 )}
               </div>
@@ -320,5 +336,3 @@ export default function DecodeTab() {
     </Card>
   );
 }
-
-    
