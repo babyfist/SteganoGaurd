@@ -63,7 +63,7 @@ export default function DecodeTab() {
 
       try {
         let extractedBuffer: ArrayBuffer;
-        if (stegoFile.type === 'image/png') {
+        if (stegoFile.type.startsWith('image/')) {
             extractedBuffer = await extractDataFromPng(stegoFile);
         } else {
             extractedBuffer = await extractDataFromGenericFile(stegoFile);
@@ -78,6 +78,7 @@ export default function DecodeTab() {
                 setDecodedData(potentialUnsignedData);
                 setSignatureState('unsigned');
                 toast({ title: "Success", description: "Unsigned file data extracted." });
+                setIsLoading(false);
                 return;
             }
         } catch (e) {
@@ -132,14 +133,23 @@ export default function DecodeTab() {
     }
     setIsLoading(true);
     setError('');
+    setDecryptedDecoy(''); // Clear previous success on new attempt
     try {
       const decrypted = await decryptSymmetric(decodedData.decoy, password);
       setDecryptedDecoy(decrypted);
       toast({ title: "Decoy Decrypted", description: "The decoy message has been revealed." });
     } catch (err) {
-      console.error(err);
-      setError("Failed to decrypt decoy message. Incorrect password?");
-       toast({ variant: "destructive", title: "Decryption Failed", description: "Could not decrypt the decoy message. Check the password and try again." });
+        // Decryption errors (like wrong password) throw a DOMException with name 'OperationError'.
+        // We can treat this as an expected failure and give a specific message.
+        if (err instanceof DOMException && err.name === 'OperationError') {
+            setError("Failed to decrypt decoy message. The password appears to be incorrect.");
+            toast({ variant: "destructive", title: "Decryption Failed", description: "Incorrect password. Please try again." });
+        } else {
+            // For any other unexpected errors, log them and show a generic message.
+            console.error("Decryption error:", err);
+            setError("An unexpected error occurred while decrypting the decoy message.");
+            toast({ variant: "destructive", title: "Decryption Error", description: "An unexpected error occurred." });
+        }
     } finally {
       setIsLoading(false);
     }
@@ -254,7 +264,7 @@ export default function DecodeTab() {
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="stego-file-upload">1. Upload Steganographic File</Label>
-          <Input id="stego-file-upload" type="file" accept="image/png,audio/*,video/*,.pdf,.doc,.docx" ref={fileInputRef} onChange={(e) => setStegoFile(e.target.files?.[0] || null)} className="hidden" />
+          <Input id="stego-file-upload" type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx" ref={fileInputRef} onChange={(e) => setStegoFile(e.target.files?.[0] || null)} className="hidden" />
           <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
             <Upload className="w-4 h-4 mr-2" />
             {stegoFile ? stegoFile.name : 'Select File'}
