@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +18,7 @@ import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarn
 import { encryptSymmetric, encryptHybrid, importSigningKey, signData, textToArrayBuffer, getPublicKeyHash, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
 import { embedDataInPng, embedDataInGenericFile } from '@/lib/steganography';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { cn } from '@/lib/utils';
 
 /**
  * The EncodeTab component provides the UI and logic for embedding a secret message into a file.
@@ -299,9 +300,9 @@ export default function EncodeTab() {
                   <div className="space-y-2">
                       <Label htmlFor="cover-image">Cover File (Images are converted to PNG)</Label>
                       <Input id="cover-image" type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx" ref={coverImageRef} onChange={(e) => setCoverImage(e.target.files?.[0] || null)} className="hidden"/>
-                      <Button variant="outline" onClick={() => coverImageRef.current?.click()} className="w-full">
+                      <Label htmlFor="cover-image" className={cn(buttonVariants({ variant: "outline" }), "w-full cursor-pointer font-normal")}>
                           <ImageIcon /> {coverImage ? coverImage.name : "Select Cover File"}
-                      </Button>
+                      </Label>
                   </div>
                    <div className="space-y-2">
                       <Label htmlFor="decoy-message">Password Protected Message (Public)</Label>
@@ -422,7 +423,9 @@ export default function EncodeTab() {
                             <Label htmlFor="new-recipient-key">Recipient Public Key</Label>
                             <Textarea id="new-recipient-key" value={newRecipientKeyInput} onChange={e => setNewRecipientKeyInput(e.target.value)} placeholder="Paste the recipient's public key JSON here" rows={3} />
                             <Input id="new-recipient-file" type="file" accept=".json" ref={newRecipientKeyFileRef} onChange={(e) => handleNewRecipientFile(e.target.files?.[0] || null)} className="hidden"/>
-                            <Button variant="link" className="p-0 h-auto" onClick={() => newRecipientKeyFileRef.current?.click()}>Or upload a key file</Button>
+                            <Label htmlFor="new-recipient-file" className={cn(buttonVariants({ variant: "link" }), "p-0 h-auto cursor-pointer")}>
+                              Or upload a key file
+                            </Label>
                         </div>
                         {newRecipientError && <Alert variant="destructive" className="text-xs"><FileWarning className="h-3 w-3" /><AlertDescription>{newRecipientError}</AlertDescription></Alert>}
                     </div>

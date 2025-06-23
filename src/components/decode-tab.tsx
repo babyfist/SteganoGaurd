@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -13,6 +13,7 @@ import { IdentityKeyPair } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Upload, KeyRound, Lock, ShieldCheck, FileWarning, Loader2, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { cn } from '@/lib/utils';
 
 /** The fixed length of an Ed25519 signature in bytes. */
 const SIGNATURE_LENGTH_BYTES = 64; 
@@ -300,10 +301,10 @@ export default function DecodeTab() {
         <div className="space-y-2">
           <Label htmlFor="stego-file-upload">1. Upload Steganographic File</Label>
           <Input id="stego-file-upload" type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx" ref={fileInputRef} onChange={(e) => setStegoFile(e.target.files?.[0] || null)} className="hidden" />
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
+          <Label htmlFor="stego-file-upload" className={cn(buttonVariants({ variant: 'outline' }), 'w-full cursor-pointer font-normal')}>
             <Upload className="w-4 h-4 mr-2" />
             {stegoFile ? stegoFile.name : 'Select File'}
-          </Button>
+          </Label>
         </div>
 
         {isLoading && !decodedData && !error && (

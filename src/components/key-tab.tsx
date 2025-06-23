@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
 import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, importSigningKey, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
-import { downloadJson } from '@/lib/utils';
+import { downloadJson, cn } from '@/lib/utils';
 import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Pencil, Copy, ArrowUp, ArrowDown } from 'lucide-react';
 
 /**
@@ -462,8 +462,10 @@ export default function KeyTab() {
               </Accordion>
               <div className="flex items-center gap-2 mt-4 flex-wrap">
                 <Button onClick={handleGenerateIdentity} disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin" /> : <KeyRound className="mr-2" />} Generate New Identity</Button>
-                <Input type="file" accept=".json" className="hidden" ref={importIdentityRef} onChange={e => handleImportIdentity(e.target.files?.[0] || null)} />
-                <Button variant="secondary" onClick={() => importIdentityRef.current?.click()}><Upload className="mr-2" /> Import Identity</Button>
+                <Input id="import-identity-file" type="file" accept=".json" className="hidden" ref={importIdentityRef} onChange={e => handleImportIdentity(e.target.files?.[0] || null)} />
+                <Label htmlFor="import-identity-file" className={cn(buttonVariants({ variant: 'secondary' }), 'cursor-pointer')}>
+                  <Upload className="mr-2" /> Import Identity
+                </Label>
                 <Button variant="secondary" onClick={handleExportAllIdentities} disabled={!isMounted || identities.length === 0}><Download className="mr-2 h-4 w-4" /> Export All</Button>
               </div>
             </>
@@ -497,11 +499,11 @@ export default function KeyTab() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="contact-key-file" className="text-primary">Contact Public Key / List File</Label>
-                <Input type="file" accept=".json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
-                 <Button variant="outline" className="w-full justify-start text-muted-foreground" onClick={() => addContactRef.current?.click()}>
+                <Input id="add-contact-file" type="file" accept=".json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
+                 <Label htmlFor="add-contact-file" className={cn(buttonVariants({ variant: 'outline' }), 'w-full justify-start text-muted-foreground font-normal cursor-pointer')}>
                     <Upload className="mr-2 h-4 w-4" />
                     {pendingContactKeyFile ? pendingContactKeyFile.name : "Select key file..."}
-                 </Button>
+                 </Label>
               </div>
             </div>
             <DialogFooter>
@@ -515,3 +517,4 @@ export default function KeyTab() {
 }
 
     
+
