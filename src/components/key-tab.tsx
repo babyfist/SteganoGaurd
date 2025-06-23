@@ -462,7 +462,7 @@ export default function KeyTab() {
               </Accordion>
               <div className="flex items-center gap-2 mt-4 flex-wrap">
                 <Button onClick={handleGenerateIdentity} disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />} Generate New Identity</Button>
-                <Input id="import-identity-file" type="file" accept="application/json,.json" className="hidden" ref={importIdentityRef} onChange={e => handleImportIdentity(e.target.files?.[0] || null)} />
+                <Input id="import-identity-file" type="file" accept="*/*" className="hidden" ref={importIdentityRef} onChange={e => handleImportIdentity(e.target.files?.[0] || null)} />
                 <Label htmlFor="import-identity-file" className={cn(buttonVariants({ variant: 'secondary' }), 'cursor-pointer')}>
                   <Upload className="mr-2 h-4 w-4" /> Import Identity
                 </Label>
@@ -499,7 +499,7 @@ export default function KeyTab() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="contact-key-file" className="text-primary">Contact Public Key / List File</Label>
-                <Input id="add-contact-file" type="file" accept="application/json,.json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
+                <Input id="add-contact-file" type="file" accept="*/*" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
                  <Label htmlFor="add-contact-file" className={cn(buttonVariants({ variant: 'outline' }), 'w-full justify-start text-muted-foreground font-normal cursor-pointer')}>
                     <Upload className="mr-2 h-4 w-4" />
                     {pendingContactKeyFile ? pendingContactKeyFile.name : "Select key file..."}
