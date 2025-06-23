@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
-import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarning, Users, ShieldCheck, FileDown, UserPlus, CheckCircle2 } from 'lucide-react';
+import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarning, Users, ShieldCheck, FileDown, UserPlus, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { encryptSymmetric, encryptHybrid, importSigningKey, signData, textToArrayBuffer, getPublicKeyHash, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
 import { embedDataInPng, embedDataInGenericFile } from '@/lib/steganography';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -29,6 +29,7 @@ export default function EncodeTab() {
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [decoyMessage, setDecoyMessage] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [secretMessage, setSecretMessage] = useState('');
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
   const [includeSignature, setIncludeSignature] = useState(true);
@@ -303,15 +304,34 @@ export default function EncodeTab() {
                       </Button>
                   </div>
                    <div className="space-y-2">
-                      <Label htmlFor="decoy-message">Decoy Message (Public)</Label>
+                      <Label htmlFor="decoy-message">Password Protected Message (Public)</Label>
                       <Textarea id="decoy-message" placeholder="A plausible, non-secret message." value={decoyMessage} onChange={e => setDecoyMessage(e.target.value)} />
                   </div>
                    <div className="space-y-2">
-                      <Label htmlFor="password">Password for Decoy</Label>
-                      <Input id="password" type="password" placeholder="Password to reveal decoy" value={password} onChange={e => setPassword(e.target.value)} />
-                  </div>
+                        <Label htmlFor="password">Password for Message</Label>
+                        <div className="relative">
+                            <Input
+                                id="password"
+                                type={showPassword ? 'text' : 'password'}
+                                placeholder="Password to reveal message"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="pr-10"
+                            />
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:bg-transparent"
+                                onClick={() => setShowPassword(!showPassword)}
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </Button>
+                        </div>
+                    </div>
                    <div className="space-y-2">
-                      <Label htmlFor="secret-message">Secret Message</Label>
+                      <Label htmlFor="secret-message">Encrypted Message (Private to Selected Contacts)</Label>
                       <Textarea id="secret-message" placeholder="Your true hidden message." value={secretMessage} onChange={e => setSecretMessage(e.target.value)} />
                   </div>
               </div>
@@ -387,13 +407,6 @@ export default function EncodeTab() {
                   )}
 
                   {/* Recipient Selection */}
-                  <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                          <Checkbox id="send-to-new" checked={sendToNew} onCheckedChange={(checked) => setSendToNew(Boolean(checked))} />
-                          <Label htmlFor="send-to-new" className="cursor-pointer">Send to a new recipient (not in contacts)</Label>
-                      </div>
-                  </div>
-
                   {sendToNew ? (
                     // Form for a new recipient.
                     <div className="space-y-4 p-4 border rounded-md bg-muted/50">
@@ -439,6 +452,12 @@ export default function EncodeTab() {
                          )}
                     </fieldset>
                   )}
+                   <div className="space-y-2 pt-4">
+                      <div className="flex items-center space-x-2">
+                          <Checkbox id="send-to-new" checked={sendToNew} onCheckedChange={(checked) => setSendToNew(Boolean(checked))} />
+                          <Label htmlFor="send-to-new" className="cursor-pointer">Send to a new recipient (not in contacts)</Label>
+                      </div>
+                  </div>
               </div>
           </div>
 
@@ -499,3 +518,5 @@ export default function EncodeTab() {
     </>
   );
 }
+
+    
