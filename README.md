@@ -18,9 +18,9 @@ Test files are located in the `__tests__` directory.
 
 The `public/examples` directory contains sample JSON files that can be used to test the application's import functionality.
 
-- **`example_identity_backup.json`**: A full backup of a single identity, including its private keys. Use this with the "Import Identity" function.
-- **`example_contact_public_key.json`**: The public keys for a single contact ("Bob"). Use this with the "Add Contact" function when importing a single contact.
-- **`example_contact_list.json`**: A list of public keys for multiple contacts. Use this with the "Add Contact" function to import multiple contacts at once.
+-   **`example_identity_backup.json`**: A full backup of a single identity, including its private keys. Use this with the "Import Identity" function.
+-   **`example_contact_public_key.json`**: The public keys for a single contact ("Bob"). Use this with the "Add Contact" function when importing a single contact.
+-   **`example_contact_list.json`**: A list of public keys for multiple contacts. Use this with the "Add Contact" function to import multiple contacts at once.
 
 ## Packaging as a Web Extension
 
@@ -34,31 +34,15 @@ Run the standard build command. Because of the `output: 'export'` configuration 
 npm run build
 ```
 
-### 2. Create the Manifest File
+### 2. Prepare the Manifest and Icons
 
-Your browser needs a `manifest.json` file to understand the extension. Create a new file at `public/manifest.json` and add the following content. You will also need to create icons and place them in the `public/` directory.
+A `public/manifest.json` file has been created for you. To complete the setup, you must create the following icon files and place them in the `public/` directory.
 
-```json
-{
-  "manifest_version": 3,
-  "name": "SteganoGuard",
-  "version": "1.0",
-  "description": "A steganography and cryptography tool to hide and sign secret messages within files.",
-  "action": {
-    "default_popup": "index.html",
-    "default_icon": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
-    }
-  },
-  "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
-  }
-}
-```
+-   `public/icon16.png` (16x16 pixels)
+-   `public/icon48.png` (48x48 pixels)
+-   `public/icon128.png` (128x128 pixels)
+
+The manifest file (`public/manifest.json`) already references these icons.
 
 ### 3. Load the Extension in Your Browser
 
@@ -73,17 +57,17 @@ The SteganoGuard icon should now appear in your browser's toolbar.
 
 The following UI component files are not currently used by the application and can be safely deleted if you wish:
 
-- `src/components/ui/avatar.tsx`
-- `src/components/ui/calendar.tsx`
-- `src/components/ui/chart.tsx`
-- `src/components/ui/form.tsx`
-- `src/components/ui/menubar.tsx`
-- `src/components/ui/popover.tsx`
-- `src/components/ui/progress.tsx`
-- `src/components/ui/radio-group.tsx`
-- `src/components/ui/sheet.tsx`
-- `src/components/ui/sidebar.tsx`
-- `src/components/ui/skeleton.tsx`
-- `src/components/ui/slider.tsx`
-- `src/components/ui/table.tsx`
-- `src/hooks/use-mobile.tsx`
+-   `src/components/ui/avatar.tsx`
+-   `src/components/ui/calendar.tsx`
+-   `src/components/ui/chart.tsx`
+-   `src/components/ui/form.tsx`
+-   `src/components/ui/menubar.tsx`
+-   `src/components/ui/popover.tsx`
+-   `src/components/ui/progress.tsx`
+-   `src/components/ui/radio-group.tsx`
+-   `src/components/ui/sheet.tsx`
+-   `src/components/ui/sidebar.tsx`
+-   `src/components/ui/skeleton.tsx`
+-   `src/components/ui/slider.tsx`
+-   `src/components/ui/table.tsx`
+-   `src/hooks/use-mobile.tsx`
