@@ -1,8 +1,6 @@
-# Firebase Studio
+# SteganoGuard
 
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
+SteganoGuard is a web-based tool built with Next.js that allows you to hide and sign secret messages within files using steganography and cryptography. It ensures both the confidentiality and authenticity of your hidden data.
 
 ## Packaging as a Web Extension
 
