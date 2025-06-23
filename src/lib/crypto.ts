@@ -33,12 +33,21 @@ export async function exportKeyJwk(key: CryptoKey) {
 
 // Hashing
 export async function getPublicKeyHash(publicKeyJwk: JsonWebKey): Promise<string> {
-    // Manually construct a string from the essential components in a fixed order.
-    // This avoids any ambiguity from JSON.stringify's property ordering.
-    if (!publicKeyJwk.crv || !publicKeyJwk.kty || !publicKeyJwk.x || !publicKeyJwk.y) {
-        throw new Error("Cannot hash JWK: missing one or more required properties (crv, kty, x, y).");
+    // Manually construct a string from the essential components in a fixed order
+    // to create a consistent, hashable representation of the key.
+    let keyString: string;
+
+    if (publicKeyJwk.kty === 'EC' && publicKeyJwk.crv && publicKeyJwk.x && publicKeyJwk.y) {
+        // For Elliptic Curve keys (used for encryption), include x and y coordinates.
+        keyString = `${publicKeyJwk.kty}|${publicKeyJwk.crv}|${publicKeyJwk.x}|${publicKeyJwk.y}`;
+    } else if (publicKeyJwk.kty === 'OKP' && publicKeyJwk.crv && publicKeyJwk.x) {
+        // For Octet Key Pair keys like Ed25519 (used for signing), only x is needed.
+        keyString = `${publicKeyJwk.kty}|${publicKeyJwk.crv}|${publicKeyJwk.x}`;
+    } else {
+        // If the key doesn't match a known format, it's invalid for our purposes.
+        throw new Error("Cannot hash JWK: key is not a supported format or is missing required properties.");
     }
-    const keyString = `${publicKeyJwk.crv}|${publicKeyJwk.kty}|${publicKeyJwk.x}|${publicKeyJwk.y}`;
+    
     const keyBuffer = textToArrayBuffer(keyString);
     const hashBuffer = await crypto.subtle.digest('SHA-256', keyBuffer);
     return bufferToHex(hashBuffer);
