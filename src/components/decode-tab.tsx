@@ -14,25 +14,32 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Upload, KeyRound, Lock, ShieldCheck, FileWarning, Loader2, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
-const SIGNATURE_LENGTH_BYTES = 64; // Ed25519 signatures are always 64 bytes long.
+/** The fixed length of an Ed25519 signature in bytes. */
+const SIGNATURE_LENGTH_BYTES = 64; 
 
+/** Defines the structure of the decoded, but not yet decrypted, data from a file. */
 type DecodedData = {
   senderPublicKey?: JsonWebKey;
   decoy: { iv: string; ciphertext: string; };
   messages: { recipientPublicKeyHash: string; ephemeralPublicKey: JsonWebKey; iv: string; ciphertext:string; }[];
 };
 
-// New type for storing multiple decryption results
+/** Defines the structure for storing a successfully decrypted message along with the identity used. */
 type DecryptionResult = {
   identityName: string;
   message: string;
 };
 
+/**
+ * The DecodeTab component handles the logic for decoding and decrypting messages from steganographic files.
+ * It allows users to upload a file, verifies its signature (if present), and decrypts both the decoy
+ * and the secret message using the user's stored identities.
+ */
 export default function DecodeTab() {
+  // --- STATE MANAGEMENT ---
   const [stegoFile, setStegoFile] = useState<File | null>(null);
   const [password, setPassword] = useState('');
   const [decryptedDecoy, setDecryptedDecoy] = useState('');
-  // New state for multiple results
   const [decryptionResults, setDecryptionResults] = useState<DecryptionResult[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -40,28 +47,37 @@ export default function DecodeTab() {
   const [signatureState, setSignatureState] = useState<'valid' | 'invalid' | 'unsigned' | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
+  // Load user identities from local storage.
   const [identities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
 
+  // Refs for file input and toast notifications.
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Effect to ensure component is mounted before accessing client-side APIs like localStorage.
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  /**
+   * Main effect to process the uploaded file. It triggers whenever `stegoFile` changes.
+   * This function extracts the hidden data, verifies the signature, and updates the component's state.
+   */
   useEffect(() => {
     const processFile = async () => {
       if (!stegoFile) return;
 
+      // Reset state for the new file processing.
       setIsLoading(true);
       setError('');
       setDecodedData(null);
       setDecryptedDecoy('');
-      setDecryptionResults([]); // Clear previous results
+      setDecryptionResults([]);
       setSignatureState(null);
       setPassword('');
 
       try {
+        // Extract the hidden ArrayBuffer from the file.
         let extractedBuffer: ArrayBuffer;
         if (stegoFile.type.startsWith('image/')) {
             extractedBuffer = await extractDataFromPng(stegoFile);
@@ -69,11 +85,11 @@ export default function DecodeTab() {
             extractedBuffer = await extractDataFromGenericFile(stegoFile);
         }
 
-        // Try to parse the whole buffer as JSON. If it works, it's an unsigned message.
+        // First, try to parse the buffer as an unsigned message.
+        // This is a quick check to see if it's a JSON object without a signature.
         try {
             const potentialUnsignedJson = arrayBufferToText(extractedBuffer);
             const potentialUnsignedData: DecodedData = JSON.parse(potentialUnsignedJson);
-
             if (potentialUnsignedData.decoy && potentialUnsignedData.messages && !potentialUnsignedData.senderPublicKey) {
                 setDecodedData(potentialUnsignedData);
                 setSignatureState('unsigned');
@@ -82,14 +98,17 @@ export default function DecodeTab() {
                 return;
             }
         } catch (e) {
-            // This is expected for signed files, so we continue.
+            // This is expected for signed files, so we can ignore this error and continue.
         }
         
+        // If it's not a simple unsigned message, assume it's signed.
+        // The signature is appended to the JSON payload.
         const payloadLength = extractedBuffer.byteLength - SIGNATURE_LENGTH_BYTES;
         if (payloadLength <= 0) {
             throw new Error("Extracted data is too small to contain a signature.");
         }
         
+        // Separate the payload and the signature.
         const payloadBuffer = extractedBuffer.slice(0, payloadLength);
         const signatureBuffer = extractedBuffer.slice(payloadLength);
         
@@ -100,6 +119,7 @@ export default function DecodeTab() {
             throw new Error("Data appears to be signed but is missing sender's public key.");
         }
 
+        // Verify the signature.
         const senderSigningKey = await importSigningKey(data.senderPublicKey, 'verify');
         const verified = await verifySignature(senderSigningKey, signatureBuffer, payloadBuffer);
         
@@ -108,24 +128,28 @@ export default function DecodeTab() {
             setSignatureState('valid');
             toast({ title: "Success", description: "File data extracted and signature verified." });
         } else {
-            setDecodedData(null); // Don't process data with an invalid signature
+            setDecodedData(null); // Don't process data with an invalid signature.
             setSignatureState('invalid');
             toast({ variant: "destructive", title: "Verification Failed", description: "The file signature is invalid."})
         }
       } catch (err) {
         // This catch block handles expected errors from file processing (e.g., not a valid SteganoGuard file).
-        // We display an error in the UI instead of logging to the console or showing a toast.
+        // It displays an error in the UI instead of logging to the console or showing a toast.
         setError("This file cannot be decoded. Please select a valid SteganoGuard file that has not been modified.");
         setSignatureState(null);
       } finally {
         setIsLoading(false);
       }
     };
+
     if (isMounted) {
       processFile();
     }
   }, [stegoFile, isMounted, toast]);
 
+  /**
+   * Handles the decryption of the public "decoy" message using the provided password.
+   */
   const handleDecoyDecrypt = async () => {
     if (!decodedData || !password) {
       setError("Please enter the password.");
@@ -133,7 +157,8 @@ export default function DecodeTab() {
     }
     setIsLoading(true);
     setError('');
-    setDecryptedDecoy(''); // Clear previous success on new attempt
+    setDecryptedDecoy('');
+
     try {
       const decrypted = await decryptSymmetric(decodedData.decoy, password);
       setDecryptedDecoy(decrypted);
@@ -155,7 +180,10 @@ export default function DecodeTab() {
     }
   };
 
-  // Modified to check all identities and collect all results
+  /**
+   * Handles the decryption of the secret message. It iterates through all of the user's stored
+   * identities and tries to decrypt any message intended for them.
+   */
   const handleMessageDecrypt = async () => {
     if (!decodedData) {
       setError("Please upload and process a file first.");
@@ -178,15 +206,18 @@ export default function DecodeTab() {
         let localDecryptionError = '';
         const successfulDecryptions: DecryptionResult[] = [];
 
+        // Iterate through each of the user's identities.
         for (const identity of identities) {
             const myPublicKeyJwk = identity.encryption.publicKey;
             const myKeyHash = await getPublicKeyHash(myPublicKeyJwk);
             
+            // Find if there's a message in the payload for this identity.
             const myMessageData = decodedData.messages.find(m => m.recipientPublicKeyHash === myKeyHash);
 
             if (myMessageData) {
                 foundAnyMessage = true;
                 try {
+                    // If a message is found, attempt to decrypt it with the identity's private key.
                     const myPrivateKey = await importEncryptionKey(identity.encryption.privateKey, ['deriveKey']);
                     const decrypted = await decryptHybrid(myMessageData, myPrivateKey);
                     successfulDecryptions.push({ identityName: identity.name, message: decrypted });
@@ -206,7 +237,7 @@ export default function DecodeTab() {
         if (!foundAnyMessage) {
             setError("No message found for any of your identities in this file.");
         } else if (successfulDecryptions.length === 0 && localDecryptionError) {
-             // If we found at least one message but couldn't decrypt it, show an error.
+             // If a message was found but couldn't be decrypted, show an error.
             setError(localDecryptionError);
             toast({ variant: "destructive", title: "Decryption Issue", description: localDecryptionError });
         }
@@ -221,6 +252,10 @@ export default function DecodeTab() {
     }
   };
 
+  /**
+   * Renders a status alert based on the signature verification result.
+   * @returns {React.ReactNode | null} The alert component or null.
+   */
   const renderSignatureAlert = () => {
     if (!signatureState) return null;
 
@@ -254,7 +289,7 @@ export default function DecodeTab() {
     }
   };
 
-
+  // --- RENDER LOGIC ---
   return (
     <Card>
       <CardHeader>
@@ -283,6 +318,7 @@ export default function DecodeTab() {
         {decodedData && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+              {/* Decoy Message Section */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">2. Decrypt Decoy Message</h3>
                 <div className="space-y-2">
@@ -301,6 +337,7 @@ export default function DecodeTab() {
                 )}
               </div>
 
+              {/* Secret Message Section */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">3. Decrypt Your Message</h3>
                  <p className="text-sm text-muted-foreground">The app will automatically try all of your saved identities to find and decrypt your message.</p>
@@ -312,7 +349,7 @@ export default function DecodeTab() {
                      <Alert><Loader2 className="h-4 w-4 animate-spin" /> <AlertDescription>Loading identities...</AlertDescription></Alert>
                  ) : identities.length === 0 && <Alert variant="destructive"><AlertDescription>No identities found. Add one in the Key Management tab.</AlertDescription></Alert>}
                 
-                {/* Modified JSX to render multiple results */}
+                {/* Render multiple decryption results if found */}
                 {decryptionResults.length > 0 && (
                   <Alert>
                     <AlertTitle>Decrypted Secret Message(s)</AlertTitle>

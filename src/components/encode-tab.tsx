@@ -19,7 +19,13 @@ import { encryptSymmetric, encryptHybrid, importSigningKey, signData, textToArra
 import { embedDataInPng, embedDataInGenericFile } from '@/lib/steganography';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
+/**
+ * The EncodeTab component provides the UI and logic for embedding a secret message into a file.
+ * It handles file selection, message inputs, recipient selection, digital signing, and the
+ * final encoding and embedding process.
+ */
 export default function EncodeTab() {
+  // --- STATE MANAGEMENT ---
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [decoyMessage, setDecoyMessage] = useState('');
   const [password, setPassword] = useState('');
@@ -32,9 +38,11 @@ export default function EncodeTab() {
   const [result, setResult] = useState<{ url: string; fileName: string; isImage: boolean } | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   
+  // Identities and active identity from local storage.
   const [identities, setIdentities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
   const [activeIdentityId] = useLocalStorage<string | null>('activeKeyId', null);
 
+  // State for sending to a new recipient not in contacts.
   const [sendToNew, setSendToNew] = useState(false);
   const [newRecipientName, setNewRecipientName] = useState('');
   const [newRecipientKeyInput, setNewRecipientKeyInput] = useState('');
@@ -42,23 +50,29 @@ export default function EncodeTab() {
   const [newRecipientError, setNewRecipientError] = useState('');
   const [promptSaveContact, setPromptSaveContact] = useState<Contact | null>(null);
 
-  // State for the visible stamp/watermark
+  // State for the visible watermark/stamp.
   const [includeStamp, setIncludeStamp] = useState(true);
   const [stampText, setStampText] = useState('');
   const [stampFont, setStampFont] = useState('Arial');
   const [stampSize, setStampSize] = useState(16);
   
+  // Computed values.
   const activeIdentity = identities.find(id => id.id === activeIdentityId);
   const contacts = activeIdentity?.contacts || [];
 
+  // Refs for file inputs and toast notifications.
   const coverImageRef = useRef<HTMLInputElement>(null);
   const newRecipientKeyFileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // --- EFFECTS ---
+  
+  // Effect to ensure component is mounted before using client-side features.
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  // Effect to clean up object URLs when the component unmounts or the result changes.
   useEffect(() => {
     let currentUrl: string | null = result?.url || null;
     let isObjectUrl = currentUrl?.startsWith('blob:') || false;
@@ -70,6 +84,7 @@ export default function EncodeTab() {
     };
   }, [result]);
   
+  // Effect to auto-validate a new recipient's public key when the input changes.
   useEffect(() => {
     if (!sendToNew) {
       setValidatedNewRecipient(null);
@@ -98,11 +113,14 @@ export default function EncodeTab() {
             }
         };
         parseAndValidate();
-    }, 500);
+    }, 500); // Debounce validation to avoid running on every keystroke.
 
     return () => clearTimeout(timer);
   }, [newRecipientKeyInput, newRecipientName, sendToNew]);
 
+  // --- HANDLERS ---
+
+  /** Toggles the selection of a contact from the list. */
   const handleToggleRecipient = (contactId: string) => {
     const newSelection = new Set(selectedContactIds);
     if (newSelection.has(contactId)) {
@@ -113,6 +131,7 @@ export default function EncodeTab() {
     setSelectedContactIds(newSelection);
   };
 
+  /** Reads a new recipient's public key from an uploaded file. */
   const handleNewRecipientFile = async (file: File | null) => {
     if (!file) return;
     try {
@@ -123,6 +142,7 @@ export default function EncodeTab() {
     }
   };
 
+  /** Saves a newly used recipient to the active identity's contact list. */
   const handleSaveNewContact = () => {
     if (!promptSaveContact || !activeIdentityId) return;
 
@@ -145,12 +165,17 @@ export default function EncodeTab() {
     setPromptSaveContact(null);
   };
   
+  /**
+   * The main handler for the encoding process. It gathers all inputs, performs the necessary
+   * cryptographic operations, and embeds the final data into the chosen cover file.
+   */
   const handleEncode = async () => {
     if (includeSignature && !activeIdentity) {
       setError("Please set an active identity to sign the message.");
       return;
     }
 
+    // Determine the list of recipients.
     let recipientsToEncrypt: Contact[] = [];
     if (sendToNew) {
       if (validatedNewRecipient) {
@@ -160,6 +185,7 @@ export default function EncodeTab() {
       recipientsToEncrypt = contacts.filter(c => selectedContactIds.has(c.id));
     }
     
+    // Validate that all required fields are filled.
     if (!coverImage || !decoyMessage || !password || !secretMessage || recipientsToEncrypt.length === 0) {
         let errorMsg = "Please complete all fields. Missing: ";
         const missing = [];
@@ -178,61 +204,57 @@ export default function EncodeTab() {
     setResult(null);
 
     try {
+        // Prepare watermark options if enabled.
         let stampOptions: any = null;
         if (includeStamp && coverImage?.type.startsWith('image/')) {
             let textToStamp = stampText.trim();
+            // Default stamp text to the public key hash if not provided.
             if (!textToStamp && activeIdentity) {
                 const hash = await getPublicKeyHash(activeIdentity.signing.publicKey);
                 textToStamp = `SGID:${hash.substring(0, 16)}...`;
             }
-            
             if(textToStamp) {
-                stampOptions = {
-                    text: textToStamp,
-                    font: stampFont,
-                    size: stampSize,
-                };
+                stampOptions = { text: textToStamp, font: stampFont, size: stampSize };
             }
         }
 
+        // 1. Encrypt the decoy message symmetrically with the password.
         const encryptedDecoy = await encryptSymmetric(decoyMessage, password);
 
+        // 2. Encrypt the secret message for each recipient using hybrid encryption.
         const encryptedMessages = await Promise.all(recipientsToEncrypt.map(async (recipient) => {
             const recipientPublicKey = await importEncryptionKey(recipient.encryptionPublicKey, []);
             const recipientKeyHash = await getPublicKeyHash(recipient.encryptionPublicKey);
             const encrypted = await encryptHybrid(secretMessage, recipientPublicKey);
-            return {
-                recipientPublicKeyHash: recipientKeyHash,
-                ...encrypted
-            };
+            return { recipientPublicKeyHash: recipientKeyHash, ...encrypted };
         }));
         
-        const payload: {
-            senderPublicKey?: JsonWebKey;
-            decoy: any;
-            messages: any[];
-        } = {
+        // 3. Assemble the full data payload.
+        const payload: { senderPublicKey?: JsonWebKey; decoy: any; messages: any[]; } = {
             decoy: encryptedDecoy,
             messages: encryptedMessages,
         };
 
         let dataToEmbed: ArrayBuffer;
 
+        // 4. Sign the payload if requested.
         if (includeSignature && activeIdentity) {
             payload.senderPublicKey = activeIdentity.signing.publicKey;
             const privateSigningKey = await importSigningKey(activeIdentity.signing.privateKey, 'sign');
             const payloadBuffer = textToArrayBuffer(JSON.stringify(payload));
             const signature = await signData(privateSigningKey, payloadBuffer);
             
+            // Append the signature to the payload buffer.
             const combinedBuffer = new Uint8Array(payloadBuffer.byteLength + signature.byteLength);
             combinedBuffer.set(new Uint8Array(payloadBuffer), 0);
             combinedBuffer.set(new Uint8Array(signature), payloadBuffer.byteLength);
             dataToEmbed = combinedBuffer.buffer;
         } else {
-            const payloadBuffer = textToArrayBuffer(JSON.stringify(payload));
-            dataToEmbed = payloadBuffer;
+            // If not signing, the data to embed is just the serialized payload.
+            dataToEmbed = textToArrayBuffer(JSON.stringify(payload));
         }
         
+        // 5. Embed the final data buffer into the cover file.
         if (coverImage.type.startsWith('image/')) {
             const stegoImageUrl = await embedDataInPng(coverImage, dataToEmbed, stampOptions);
             setResult({ url: stegoImageUrl, fileName: 'steganographic-image.png', isImage: true });
@@ -244,6 +266,7 @@ export default function EncodeTab() {
 
         toast({ title: "Success!", description: "Your message has been securely embedded in the file." });
         
+        // Prompt to save the new contact if one was used.
         if (sendToNew && validatedNewRecipient) {
           setPromptSaveContact(validatedNewRecipient);
         }
@@ -259,6 +282,7 @@ export default function EncodeTab() {
   };
 
 
+  // --- RENDER LOGIC ---
   return (
     <>
       <Card>
@@ -268,6 +292,7 @@ export default function EncodeTab() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Inputs */}
               <div className="space-y-4">
                   <h3 className="font-semibold text-lg">1. Inputs</h3>
                   <div className="space-y-2">
@@ -290,6 +315,7 @@ export default function EncodeTab() {
                       <Textarea id="secret-message" placeholder="Your true hidden message." value={secretMessage} onChange={e => setSecretMessage(e.target.value)} />
                   </div>
               </div>
+              {/* Right Column: Identity, Watermark, Recipients */}
               <div className="space-y-4">
                   <h3 className="font-semibold text-lg">2. Identity & Recipients</h3>
                   <div className="space-y-2">
@@ -315,6 +341,7 @@ export default function EncodeTab() {
                       )}
                   </div>
 
+                  {/* Watermark Section */}
                   {coverImage?.type.startsWith('image/') && (
                     <div className="space-y-4 pt-4">
                         <h4 className="font-semibold">Visible Watermark</h4>
@@ -322,7 +349,6 @@ export default function EncodeTab() {
                             <Checkbox id="stamp-checkbox" checked={includeStamp} onCheckedChange={(checked) => setIncludeStamp(Boolean(checked))} />
                             <Label htmlFor="stamp-checkbox" className="cursor-pointer">Add a visible watermark to the image</Label>
                         </div>
-
                         {includeStamp && (
                             <div className="space-y-4 p-4 border rounded-md bg-muted/50">
                                 <div className="space-y-2">
@@ -360,6 +386,7 @@ export default function EncodeTab() {
                     </div>
                   )}
 
+                  {/* Recipient Selection */}
                   <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                           <Checkbox id="send-to-new" checked={sendToNew} onCheckedChange={(checked) => setSendToNew(Boolean(checked))} />
@@ -368,6 +395,7 @@ export default function EncodeTab() {
                   </div>
 
                   {sendToNew ? (
+                    // Form for a new recipient.
                     <div className="space-y-4 p-4 border rounded-md bg-muted/50">
                         <h4 className="font-semibold flex items-center justify-between">
                           New Recipient Details
@@ -386,6 +414,7 @@ export default function EncodeTab() {
                         {newRecipientError && <Alert variant="destructive" className="text-xs"><FileWarning className="h-3 w-3" /><AlertDescription>{newRecipientError}</AlertDescription></Alert>}
                     </div>
                   ) : (
+                    // List of existing contacts.
                     <fieldset disabled={!isMounted || !activeIdentity} className="space-y-2 disabled:opacity-50">
                         <Label>Recipients from Contacts</Label>
                          {!isMounted ? (
@@ -417,6 +446,7 @@ export default function EncodeTab() {
               <Alert variant="destructive" className="mt-4"><FileWarning className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>
           )}
           
+          {/* Result Display Section */}
           {result && (
               <div className="space-y-4 pt-4">
                   <h3 className="font-semibold text-lg">Result</h3>
@@ -451,6 +481,7 @@ export default function EncodeTab() {
         </CardFooter>
       </Card>
 
+      {/* Dialog to prompt saving a new contact. */}
       <AlertDialog open={!!promptSaveContact} onOpenChange={(isOpen) => !isOpen && setPromptSaveContact(null)}>
         <AlertDialogContent>
             <AlertDialogHeader>
