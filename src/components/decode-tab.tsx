@@ -115,7 +115,7 @@ export default function DecodeTab() {
       } catch (err) {
         // This catch block handles expected errors from file processing (e.g., not a valid SteganoGuard file).
         // We display an error in the UI instead of logging to the console or showing a toast.
-        setError("This file cannot be opened. Please select a valid SteganoGuard file that has not been modified.");
+        setError("This file cannot be decoded. Please select a valid SteganoGuard file that has not been modified.");
         setSignatureState(null);
       } finally {
         setIsLoading(false);
