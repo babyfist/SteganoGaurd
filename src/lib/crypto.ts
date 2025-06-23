@@ -142,14 +142,25 @@ export function textToArrayBuffer(text: string): ArrayBuffer {
   return new TextEncoder().encode(text);
 }
 
+// Browser-safe Base64 encoding/decoding
 function bufferToBase64(buffer: ArrayBuffer): string {
-  return Buffer.from(buffer).toString('base64');
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 function base64ToBuffer(base64: string): ArrayBuffer {
-  const buf = Buffer.from(base64, 'base64');
-  // The buffer may be a view on a larger ArrayBuffer, so we need to slice it
-  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+  const binary_string = atob(base64);
+  const len = binary_string.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary_string.charCodeAt(i);
+  }
+  return bytes.buffer;
 }
 
 function bufferToHex(buffer: ArrayBuffer): string {
