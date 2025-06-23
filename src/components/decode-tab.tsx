@@ -83,15 +83,13 @@ export default function DecodeTab() {
             setDecodedData(data);
             toast({ title: "Success", description: "File data extracted and signature verified." });
         } else {
-            setError("Signature verification failed! The data may have been tampered with.");
             toast({ variant: "destructive", title: "Verification Failed", description: "The file signature is invalid."})
         }
       } catch (err) {
         console.error(err);
-        const errorMessage = (err as Error).message;
-        setError(`Failed to process file. Is this a valid SteganoGuard file? Error: ${errorMessage}`);
-        toast({ variant: "destructive", title: "Processing Error", description: errorMessage });
-        setIsVerified(false);
+        setError("Could not read hidden data from this file. Please ensure it's a valid SteganoGuard file that hasn't been modified.");
+        toast({ variant: "destructive", title: "File Error", description: "Could not process the selected file." });
+        setIsVerified(null); // Keep this null so the signature alert doesn't show
       } finally {
         setIsLoading(false);
       }
@@ -144,13 +142,14 @@ export default function DecodeTab() {
         let decryptionError = '';
 
         for (const identity of identities) {
-            const myKeyHash = await getPublicKeyHash(identity.encryption.publicKey);
+            const myPublicKeyJwk = identity.encryption.publicKey;
+            const myKeyHash = await getPublicKeyHash(myPublicKeyJwk);
+            
             const myMessageData = decodedData.messages.find(m => m.recipientPublicKeyHash === myKeyHash);
 
             if (myMessageData) {
                 try {
                     const myPrivateKey = await importEncryptionKey(identity.encryption.privateKey, ['deriveKey']);
-                    const ephemeralPublicKey = await importEncryptionKey(myMessageData.ephemeralPublicKey, []);
                     const decrypted = await decryptHybrid(myMessageData, myPrivateKey);
                     setDecryptedMessage(decrypted);
                     setDecryptionIdentityName(identity.name);
@@ -200,7 +199,7 @@ export default function DecodeTab() {
           </Button>
         </div>
 
-        {isLoading && !decodedData && (
+        {isLoading && !decodedData && !error && (
             <div className="flex items-center justify-center space-x-2 py-4">
                 <Loader2 className="h-5 w-5 animate-spin" /> 
                 <span>Processing File...</span>
@@ -212,12 +211,12 @@ export default function DecodeTab() {
                 {isVerified ? <ShieldCheck className="h-4 w-4" /> : <FileWarning className="h-4 w-4" />}
                 <AlertTitle>{isVerified ? 'Signature Verified' : 'Signature Invalid!'}</AlertTitle>
                 <AlertDescription>
-                    {isVerified ? 'The integrity of the hidden data is confirmed.' : 'The data may be corrupted or tampered with.'}
+                    {isVerified ? 'The integrity of the hidden data is confirmed.' : "The file's digital signature does not match its content. This indicates the data may have been tampered with or corrupted. For security, message decryption is disabled."}
                 </AlertDescription>
             </Alert>
         )}
 
-        {decodedData && (
+        {decodedData && isVerified && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
               <div className="space-y-4">
@@ -267,7 +266,7 @@ export default function DecodeTab() {
         {error && (
             <Alert variant="destructive" className="mt-4">
                 <FileWarning className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>File Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
             </Alert>
         )}
