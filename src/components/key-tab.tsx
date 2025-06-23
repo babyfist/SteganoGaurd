@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
 import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, downloadJson, importSigningKey, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
-import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Share2, Pencil, Copy } from 'lucide-react';
+import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Pencil, Copy } from 'lucide-react';
 
 export default function KeyTab() {
   const [isLoading, setIsLoading] = useState(false);
@@ -279,7 +279,21 @@ export default function KeyTab() {
       }
   };
   
-  const exportPublicKeys = (id: string) => {
+  const handleCopyIdentityPublicKey = (id: string) => {
+      const identity = identities.find(i => i.id === id);
+      if (identity) {
+          const publicData = {
+              name: identity.name,
+              description: "SteganoGuard Public Keys for Sharing",
+              signing: { publicKey: identity.signing.publicKey },
+              encryption: { publicKey: identity.encryption.publicKey },
+          };
+          navigator.clipboard.writeText(JSON.stringify(publicData, null, 2));
+          toast({ title: "Copied to Clipboard", description: `Public key for identity "${identity.name}" has been copied.` });
+      }
+  };
+
+  const handleDownloadIdentityPublicKey = (id: string) => {
       const identity = identities.find(i => i.id === id);
       if (identity) {
           const publicData = {
@@ -289,7 +303,7 @@ export default function KeyTab() {
               encryption: { publicKey: identity.encryption.publicKey },
           };
           downloadJson(publicData, `steganoguard_public-keys_${identity.name.replace(/\s/g, '_')}.json`);
-          toast({title: "Public Key Exported", description: "The file can now be shared with your contacts."})
+          toast({title: "Public Key Downloaded", description: `A file with public keys for identity "${identity.name}" has been downloaded.`});
       }
   };
 
@@ -297,8 +311,8 @@ export default function KeyTab() {
     const publicData = {
         name: contact.name,
         description: `SteganoGuard Public Keys for ${contact.name}`,
-        signing: { publicKey: contact.signingPublicKey },
-        encryption: { publicKey: contact.encryptionPublicKey },
+        signingPublicKey: contact.signingPublicKey,
+        encryptionPublicKey: contact.encryptionPublicKey,
     };
     navigator.clipboard.writeText(JSON.stringify(publicData, null, 2));
     toast({ title: "Copied to Clipboard", description: `Public key for ${contact.name} has been copied.` });
@@ -308,8 +322,8 @@ export default function KeyTab() {
       const publicData = {
           name: contact.name,
           description: `SteganoGuard Public Keys for ${contact.name}`,
-          signing: { publicKey: contact.signingPublicKey },
-          encryption: { publicKey: contact.encryptionPublicKey },
+          signingPublicKey: contact.signingPublicKey,
+          encryptionPublicKey: contact.encryptionPublicKey,
       };
       downloadJson(publicData, `steganoguard_public-keys_${contact.name.replace(/\s/g, '_')}.json`);
       toast({title: "Public Key Downloaded", description: `A file with public keys for ${contact.name} has been downloaded.`});
@@ -380,9 +394,15 @@ export default function KeyTab() {
                                     <Pencil className="mr-2" /> Rename
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => exportPublicKeys(identity.id)}>
-                                    <Share2 className="mr-2" /> Share Public Key
+                                <DropdownMenuItem onClick={() => handleCopyIdentityPublicKey(identity.id)}>
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    <span>Copy Public Key</span>
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDownloadIdentityPublicKey(identity.id)}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    <span>Download Public Key</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => exportIdentity(identity.id)}>
                                     <Download className="mr-2" /> Backup Full Identity
                                 </DropdownMenuItem>
