@@ -230,7 +230,7 @@ export default function EncodeTab() {
         setError(`Encoding failed: ${errorMessage}`);
         toast({ variant: "destructive", title: "Encoding Error", description: `An error occurred: ${errorMessage}` });
     } finally {
-        setIsLoading(true);
+        setIsLoading(false);
     }
   };
 
@@ -399,5 +399,3 @@ export default function EncodeTab() {
     </>
   );
 }
-
-    

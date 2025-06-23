@@ -112,7 +112,7 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
   
   const maxStorableBytes = Math.floor((maxPixels - HEADER_PIXELS) * 3 / 8);
 
-  if (dataLength === 0 || isNaN(dataLength) || dataLength > maxStorableBytes ) {
+  if (dataLength === 0 || isNaN(dataLength) || dataLength > (maxStorableBytes - PNG_EOD_MARKER.length) ) {
     throw new Error("No data length found in image header or data is corrupted.");
   }
   
@@ -192,8 +192,8 @@ export async function extractDataFromGenericFile(stegoFile: File): Promise<Array
     }
 
     const fileFooter = stegoFileBuffer.slice(-footerLength); // This is now [marker][length]
-    const potentialEodMarker = new Uint8Array(fileFooter.slice(0, eodMarkerLength)); // Read marker from the start of the footer
-    const lengthData = fileFooter.slice(-lengthMarkerLength); // Read length from the end of the footer
+    const potentialEodMarker = new Uint8Array(fileFooter.slice(eodMarkerLength)); // Read marker from the start of the footer
+    const lengthData = fileFooter.slice(0, eodMarkerLength); // Read length from the end of the footer
 
     if (!GENERIC_EOD_MARKER.every((val, i) => val === potentialEodMarker[i])) {
         throw new Error("Steganographic marker not found. This does not appear to be a valid SteganoGuard file.");
