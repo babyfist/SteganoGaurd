@@ -1,0 +1,21 @@
+{
+  "name": "Bob (Example)",
+  "description": "SteganoGuard Public Keys for Bob (Example)",
+  "signing": {
+    "publicKey": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "U4_3Zh_g5D0d-s7l-qE5E9Y_8Zi-mC0t-gE2_3Zh-sB",
+      "ext": true
+    }
+  },
+  "encryption": {
+    "publicKey": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "bC_dEfGhIjKlMnOpQrStUvWxYzAbCdEfGhIjKlMnOpQ",
+      "y": "rStUvWxYzAbCdEfGhIjKlMnOpbC_dEfGhIjKlMnOpQ",
+      "ext": true
+    }
+  }
+}

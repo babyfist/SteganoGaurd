@@ -1,0 +1,38 @@
+{
+  "id": "example-alice-123",
+  "name": "Alice (Example)",
+  "description": "SteganoGuard Example Identity Key Pair",
+  "signing": {
+    "publicKey": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "T3_2Yg_f4C9c-r6k-pD4D8X_7Yh-lB9s-fD1_2Yg-rA",
+      "ext": true
+    },
+    "privateKey": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "T3_2Yg_f4C9c-r6k-pD4D8X_7Yh-lB9s-fD1_2Yg-rA",
+      "d": "aB_cDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoM",
+      "ext": true
+    }
+  },
+  "encryption": {
+    "publicKey": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "aB_cDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoP",
+      "y": "qRsTuVwXyZaBcDeFgHiJkLmNoPaB_cDeFgHiJkLmNoQ",
+      "ext": true
+    },
+    "privateKey": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "aB_cDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoP",
+      "y": "qRsTuVwXyZaBcDeFgHiJkLmNoPaB_cDeFgHiJkLmNoQ",
+      "d": "lB9s-fD1_2Yg-rAT3_2Yg_f4C9c-r6k-pD4D8X_7Yh-",
+      "ext": true
+    }
+  },
+  "contacts": []
+}

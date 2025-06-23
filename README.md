@@ -2,6 +2,26 @@
 
 SteganoGuard is a web-based tool built with Next.js that allows you to hide and sign secret messages within files using steganography and cryptography. It ensures both the confidentiality and authenticity of your hidden data.
 
+## Testing
+
+This project uses [Jest](https://jestjs.io/) and [React Testing Library](https://testing-library.com/) for unit and integration testing.
+
+To run the test suite, use the following command:
+
+```bash
+npm test
+```
+
+Test files are located in the `__tests__` directory.
+
+## Example Files
+
+The `public/examples` directory contains sample JSON files that can be used to test the application's import functionality.
+
+- **`example_identity_backup.json`**: A full backup of a single identity, including its private keys. Use this with the "Import Identity" function.
+- **`example_contact_public_key.json`**: The public keys for a single contact ("Bob"). Use this with the "Add Contact" function when importing a single contact.
+- **`example_contact_list.json`**: A list of public keys for multiple contacts. Use this with the "Add Contact" function to import multiple contacts at once.
+
 ## Packaging as a Web Extension
 
 This application has been configured to support static export, allowing it to be packaged as a browser extension.

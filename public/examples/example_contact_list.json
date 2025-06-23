@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Bob (Example)",
+    "description": "SteganoGuard Public Keys for Bob (Example)",
+    "signing": {
+      "publicKey": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "U4_3Zh_g5D0d-s7l-qE5E9Y_8Zi-mC0t-gE2_3Zh-sB",
+        "ext": true
+      }
+    },
+    "encryption": {
+      "publicKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "bC_dEfGhIjKlMnOpQrStUvWxYzAbCdEfGhIjKlMnOpQ",
+        "y": "rStUvWxYzAbCdEfGhIjKlMnOpbC_dEfGhIjKlMnOpQ",
+        "ext": true
+      }
+    }
+  },
+  {
+    "name": "Charlie (Example)",
+    "description": "SteganoGuard Public Keys for Charlie (Example)",
+    "signing": {
+      "publicKey": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "V5_4ai_h6E1e-t8m-rF6F0Z_9aj-nD1u-hF3_4ai-tC",
+        "ext": true
+      }
+    },
+    "encryption": {
+      "publicKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "cD_eFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPq",
+        "y": "sTuVwXyZaBcDeFgHiJkLmNoPcD_eFgHiJkLmNoPqR",
+        "ext": true
+      }
+    }
+  }
+]
