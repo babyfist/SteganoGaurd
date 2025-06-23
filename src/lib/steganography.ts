@@ -1,4 +1,5 @@
 
+const PNG_BOD_MARKER = new Uint8Array([83, 71, 71, 68]); // "SGGD" - StegoGuard Guard Data
 const PNG_EOD_MARKER = new Uint8Array([0, 0, 0, 0, 255, 255, 255, 255]); // 8-byte end-of-data marker for PNG LSB
 const GENERIC_EOD_MARKER = new Uint8Array([83, 84, 69, 71, 71, 85, 65, 82, 68]); // "STEGGUARD"
 
@@ -35,9 +36,10 @@ export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer):
   const pixels = imageData.data;
   
   const dataLength = dataToEmbed.byteLength;
-  const fullPayload = new Uint8Array(dataLength + PNG_EOD_MARKER.length);
-  fullPayload.set(new Uint8Array(dataToEmbed), 0);
-  fullPayload.set(PNG_EOD_MARKER, dataLength);
+  const fullPayload = new Uint8Array(PNG_BOD_MARKER.length + dataLength + PNG_EOD_MARKER.length);
+  fullPayload.set(PNG_BOD_MARKER, 0);
+  fullPayload.set(new Uint8Array(dataToEmbed), PNG_BOD_MARKER.length);
+  fullPayload.set(PNG_EOD_MARKER, PNG_BOD_MARKER.length + dataLength);
 
   // Use LSB of 11 pixels for 32-bit length header (11 pixels * 3 channels/pixel = 33 bits available)
   const HEADER_PIXELS = 11;
@@ -111,12 +113,13 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
   }
   
   const maxStorableBytes = Math.floor((maxPixels - HEADER_PIXELS) * 3 / 8);
+  const totalPayloadLength = PNG_BOD_MARKER.length + dataLength + PNG_EOD_MARKER.length;
 
-  if (dataLength === 0 || isNaN(dataLength) || dataLength > (maxStorableBytes - PNG_EOD_MARKER.length) ) {
-    throw new Error("No data length found in image header or data is corrupted.");
+  if (dataLength <= 0 || isNaN(dataLength) || totalPayloadLength > maxStorableBytes ) {
+    throw new Error("No valid SteganoGuard data found in image header.");
   }
   
-  const totalBitsToExtract = (dataLength + PNG_EOD_MARKER.length) * 8;
+  const totalBitsToExtract = totalPayloadLength * 8;
   const extractedBits: number[] = [];
   let payloadPixelIndexOffset = HEADER_PIXELS * 4;
   let payloadBitIndex = 0;
@@ -145,19 +148,25 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
   }
 
   const extractedBytes = new Uint8Array(allBytes);
-  const eodIndex = dataLength;
   
+  // Check for Beginning-of-Data marker
+  const foundBod = extractedBytes.slice(0, PNG_BOD_MARKER.length);
+  if (!PNG_BOD_MARKER.every((val, i) => val === foundBod[i])) {
+    throw new Error("This does not appear to be a valid SteganoGuard image file.");
+  }
+
+  // Check for End-of-Data marker
+  const eodIndex = PNG_BOD_MARKER.length + dataLength;
   if (eodIndex + PNG_EOD_MARKER.length > extractedBytes.length) {
     throw new Error("End-of-data marker not found. Extracted data is shorter than expected.");
   }
 
   const foundEod = extractedBytes.slice(eodIndex, eodIndex + PNG_EOD_MARKER.length);
-  
   if (!PNG_EOD_MARKER.every((val, i) => val === foundEod[i])) {
     throw new Error("End-of-data marker not found or corrupted. Data is likely invalid.");
   }
 
-  return extractedBytes.slice(0, dataLength).buffer;
+  return extractedBytes.slice(PNG_BOD_MARKER.length, eodIndex).buffer;
 }
 
 
