@@ -84,6 +84,39 @@ export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer):
   return ctx.canvas.toDataURL('image/png');
 }
 
+// Helper function to extract bits from image
+function extractBitsFromImage(pixels: Uint8ClampedArray, startPixel: number, numBits: number): number[] | null {
+    const extractedBits: number[] = [];
+    let payloadPixelIndexOffset = startPixel * 4;
+    let payloadBitIndex = 0;
+
+    while (extractedBits.length < numBits) {
+        const currentPixelIndex = payloadPixelIndexOffset + (Math.floor(payloadBitIndex / 3) * 4);
+        if (currentPixelIndex >= pixels.length) {
+            return null; // Not enough pixels
+        }
+        const channelIndex = payloadBitIndex % 3;
+        extractedBits.push(pixels[currentPixelIndex + channelIndex] & 1);
+        payloadBitIndex++;
+    }
+    return extractedBits;
+}
+
+// Helper to convert bits to bytes
+function bitsToBytes(bits: number[]): Uint8Array {
+    const bytes: number[] = [];
+    for (let i = 0; i < bits.length; i += 8) {
+        if (i + 8 <= bits.length) {
+            let byte = 0;
+            for (let j = 0; j < 8; j++) {
+                byte = (byte << 1) | bits[i + j];
+            }
+            bytes.push(byte);
+        }
+    }
+    return new Uint8Array(bytes);
+}
+
 export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> {
   const img = await loadImage(imageFile);
   const ctx = getContext(img);
@@ -91,82 +124,53 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
   const pixels = imageData.data;
 
   const HEADER_PIXELS = 11;
-  const maxPixels = pixels.length / 4;
-
-  if (maxPixels < HEADER_PIXELS) {
-    throw new Error("Image is too small to contain a header.");
+  
+  // 1. Extract Length
+  const lengthBits = extractBitsFromImage(pixels, 0, 32);
+  if (!lengthBits) {
+      throw new Error("Image is too small to contain a header.");
   }
-
-  // Extract 32-bit length from LSBs of first 11 pixels' RGB channels
-  let lengthBits: number[] = [];
-  let headerBitIndex = 0;
-  while(lengthBits.length < 32) {
-      const pixelIndex = Math.floor(headerBitIndex / 3) * 4;
-      const channelIndex = headerBitIndex % 3;
-      lengthBits.push(pixels[pixelIndex + channelIndex] & 1);
-      headerBitIndex++;
-  }
-
   let dataLength = 0;
   for(let i = 0; i < 32; i++) {
       dataLength = (dataLength << 1) | lengthBits[i];
   }
-  
-  const maxStorableBytes = Math.floor((maxPixels - HEADER_PIXELS) * 3 / 8);
-  const totalPayloadLength = PNG_BOD_MARKER.length + dataLength + PNG_EOD_MARKER.length;
 
-  if (dataLength <= 0 || isNaN(dataLength) || totalPayloadLength > maxStorableBytes ) {
-    throw new Error("No valid SteganoGuard data found in image header.");
+  const maxStorableBytes = Math.floor((pixels.length / 4 - HEADER_PIXELS) * 3 / 8);
+  if (dataLength <= 0 || isNaN(dataLength) || dataLength > maxStorableBytes) {
+      throw new Error("No valid SteganoGuard data found in image header.");
   }
-  
-  const totalBitsToExtract = totalPayloadLength * 8;
-  const extractedBits: number[] = [];
-  let payloadPixelIndexOffset = HEADER_PIXELS * 4;
-  let payloadBitIndex = 0;
-  
-  while (extractedBits.length < totalBitsToExtract) {
-      const currentPixelIndex = payloadPixelIndexOffset + (Math.floor(payloadBitIndex / 3) * 4);
 
-      if (currentPixelIndex >= pixels.length) {
-          throw new Error("Extraction error: Reached end of image data unexpectedly.");
+  // 2. Try New Format (BOD + data + EOD)
+  const newFormatPayloadLength = PNG_BOD_MARKER.length + dataLength + PNG_EOD_MARKER.length;
+  const newFormatBits = extractBitsFromImage(pixels, HEADER_PIXELS, newFormatPayloadLength * 8);
+
+  if (newFormatBits) {
+      const newBytes = bitsToBytes(newFormatBits);
+      const foundBod = newBytes.slice(0, PNG_BOD_MARKER.length);
+      if (PNG_BOD_MARKER.every((val, i) => val === foundBod[i])) {
+          const eodIndex = PNG_BOD_MARKER.length + dataLength;
+          const foundEod = newBytes.slice(eodIndex, eodIndex + PNG_EOD_MARKER.length);
+          if (PNG_EOD_MARKER.every((val, i) => val === foundEod[i])) {
+              return newBytes.slice(PNG_BOD_MARKER.length, eodIndex).buffer;
+          }
       }
-
-      const channelIndex = payloadBitIndex % 3;
-      extractedBits.push(pixels[currentPixelIndex + channelIndex] & 1);
-      payloadBitIndex++;
   }
-
-  const allBytes: number[] = [];
-  for (let i = 0; i < extractedBits.length; i += 8) {
-    if (i + 8 <= extractedBits.length) {
-      let byte = 0;
-      for (let j = 0; j < 8; j++) {
-        byte = (byte << 1) | extractedBits[i + j];
-      }
-      allBytes.push(byte);
-    }
-  }
-
-  const extractedBytes = new Uint8Array(allBytes);
   
-  // Check for Beginning-of-Data marker
-  const foundBod = extractedBytes.slice(0, PNG_BOD_MARKER.length);
-  if (!PNG_BOD_MARKER.every((val, i) => val === foundBod[i])) {
-    throw new Error("This does not appear to be a valid SteganoGuard image file.");
+  // 3. Try Old Format (data + EOD)
+  const oldFormatPayloadLength = dataLength + PNG_EOD_MARKER.length;
+  const oldFormatBits = extractBitsFromImage(pixels, HEADER_PIXELS, oldFormatPayloadLength * 8);
+
+  if (oldFormatBits) {
+      const oldBytes = bitsToBytes(oldFormatBits);
+      const eodIndex = dataLength;
+      const foundEod = oldBytes.slice(eodIndex, eodIndex + PNG_EOD_MARKER.length);
+      if (PNG_EOD_MARKER.every((val, i) => val === foundEod[i])) {
+          return oldBytes.slice(0, eodIndex).buffer;
+      }
   }
 
-  // Check for End-of-Data marker
-  const eodIndex = PNG_BOD_MARKER.length + dataLength;
-  if (eodIndex + PNG_EOD_MARKER.length > extractedBytes.length) {
-    throw new Error("End-of-data marker not found. Extracted data is shorter than expected.");
-  }
-
-  const foundEod = extractedBytes.slice(eodIndex, eodIndex + PNG_EOD_MARKER.length);
-  if (!PNG_EOD_MARKER.every((val, i) => val === foundEod[i])) {
-    throw new Error("End-of-data marker not found or corrupted. Data is likely invalid.");
-  }
-
-  return extractedBytes.slice(PNG_BOD_MARKER.length, eodIndex).buffer;
+  // 4. If neither worked
+  throw new Error("Could not find a valid SteganoGuard message. The file may be corrupt or not encoded.");
 }
 
 
