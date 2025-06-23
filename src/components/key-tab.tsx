@@ -378,17 +378,17 @@ export default function KeyTab() {
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 ml-2"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                {activeIdentityId !== identity.id && <DropdownMenuItem onClick={() => setActiveIdentityId(identity.id)}><CheckCircle2 className="mr-2" /> Set Active</DropdownMenuItem>}
-                                <DropdownMenuItem onClick={() => { setEditingIdentity(identity); setNewIdentityName(identity.name); }}><Pencil className="mr-2" /> Rename</DropdownMenuItem>
+                                {activeIdentityId !== identity.id && <DropdownMenuItem onClick={() => setActiveIdentityId(identity.id)}><CheckCircle2 className="mr-2 h-4 w-4" /> Set Active</DropdownMenuItem>}
+                                <DropdownMenuItem onClick={() => { setEditingIdentity(identity); setNewIdentityName(identity.name); }}><Pencil className="mr-2 h-4 w-4" /> Rename</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleCopyIdentityPublicKey(identity.id)}><Copy className="mr-2 h-4 w-4" /> Copy Public Key</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDownloadIdentityPublicKey(identity.id)}><Download className="mr-2 h-4 w-4" /> Download Public Key</DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => exportIdentity(identity.id)}><Download className="mr-2" /> Backup Full Identity</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExportContacts(identity.id)} disabled={!identity.contacts || identity.contacts.length === 0}><Users className="mr-2" /> Export Contacts</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => exportIdentity(identity.id)}><Download className="mr-2 h-4 w-4" /> Backup Full Identity</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExportContacts(identity.id)} disabled={!identity.contacts || identity.contacts.length === 0}><Users className="mr-2 h-4 w-4" /> Export Contacts</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <AlertDialog>
-                                    <AlertDialogTrigger asChild><DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-500 focus:text-red-500"><Trash2 className="mr-2"/> Delete...</DropdownMenuItem></AlertDialogTrigger>
+                                    <AlertDialogTrigger asChild><DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-500 focus:text-red-500"><Trash2 className="mr-2 h-4 w-4"/> Delete...</DropdownMenuItem></AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the identity "{identity.name}". This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -461,10 +461,10 @@ export default function KeyTab() {
                 ))}
               </Accordion>
               <div className="flex items-center gap-2 mt-4 flex-wrap">
-                <Button onClick={handleGenerateIdentity} disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin" /> : <KeyRound className="mr-2" />} Generate New Identity</Button>
-                <Input id="import-identity-file" type="file" accept=".json" className="hidden" ref={importIdentityRef} onChange={e => handleImportIdentity(e.target.files?.[0] || null)} />
+                <Button onClick={handleGenerateIdentity} disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />} Generate New Identity</Button>
+                <Input id="import-identity-file" type="file" accept="application/json,.json" className="hidden" ref={importIdentityRef} onChange={e => handleImportIdentity(e.target.files?.[0] || null)} />
                 <Label htmlFor="import-identity-file" className={cn(buttonVariants({ variant: 'secondary' }), 'cursor-pointer')}>
-                  <Upload className="mr-2" /> Import Identity
+                  <Upload className="mr-2 h-4 w-4" /> Import Identity
                 </Label>
                 <Button variant="secondary" onClick={handleExportAllIdentities} disabled={!isMounted || identities.length === 0}><Download className="mr-2 h-4 w-4" /> Export All</Button>
               </div>
@@ -499,7 +499,7 @@ export default function KeyTab() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="contact-key-file" className="text-primary">Contact Public Key / List File</Label>
-                <Input id="add-contact-file" type="file" accept=".json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
+                <Input id="add-contact-file" type="file" accept="application/json,.json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
                  <Label htmlFor="add-contact-file" className={cn(buttonVariants({ variant: 'outline' }), 'w-full justify-start text-muted-foreground font-normal cursor-pointer')}>
                     <Upload className="mr-2 h-4 w-4" />
                     {pendingContactKeyFile ? pendingContactKeyFile.name : "Select key file..."}
@@ -515,6 +515,3 @@ export default function KeyTab() {
     </>
   );
 }
-
-    
-

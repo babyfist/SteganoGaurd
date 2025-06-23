@@ -301,7 +301,7 @@ export default function EncodeTab() {
                       <Label htmlFor="cover-image">Cover File (Images are converted to PNG)</Label>
                       <Input id="cover-image" type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx" ref={coverImageRef} onChange={(e) => setCoverImage(e.target.files?.[0] || null)} className="hidden"/>
                       <Label htmlFor="cover-image" className={cn(buttonVariants({ variant: "outline" }), "w-full cursor-pointer font-normal")}>
-                          <ImageIcon /> {coverImage ? coverImage.name : "Select Cover File"}
+                          <ImageIcon className="w-4 h-4 mr-2" /> {coverImage ? coverImage.name : "Select Cover File"}
                       </Label>
                   </div>
                    <div className="space-y-2">
@@ -422,7 +422,7 @@ export default function EncodeTab() {
                         <div className="space-y-2">
                             <Label htmlFor="new-recipient-key">Recipient Public Key</Label>
                             <Textarea id="new-recipient-key" value={newRecipientKeyInput} onChange={e => setNewRecipientKeyInput(e.target.value)} placeholder="Paste the recipient's public key JSON here" rows={3} />
-                            <Input id="new-recipient-file" type="file" accept=".json" ref={newRecipientKeyFileRef} onChange={(e) => handleNewRecipientFile(e.target.files?.[0] || null)} className="hidden"/>
+                            <Input id="new-recipient-file" type="file" accept="application/json,.json" ref={newRecipientKeyFileRef} onChange={(e) => handleNewRecipientFile(e.target.files?.[0] || null)} className="hidden"/>
                             <Label htmlFor="new-recipient-file" className={cn(buttonVariants({ variant: "link" }), "p-0 h-auto cursor-pointer")}>
                               Or upload a key file
                             </Label>
@@ -488,7 +488,7 @@ export default function EncodeTab() {
                           a.download = result.fileName;
                           a.click();
                       }}>
-                          <Download /> Download File
+                          <Download className="w-4 h-4 mr-2" /> Download File
                       </Button>
                   </div>
               </div>
@@ -497,7 +497,7 @@ export default function EncodeTab() {
         </CardContent>
         <CardFooter>
           <Button onClick={handleEncode} disabled={isLoading || !isMounted || (includeSignature && !activeIdentity)} className="w-full">
-              {isLoading ? <Loader2 className="animate-spin" /> : <Lock />}
+              {isLoading ? <Loader2 className="animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}
               {includeSignature ? 'Encode, Sign, and Embed' : 'Encode and Embed'}
           </Button>
         </CardFooter>
@@ -521,5 +521,3 @@ export default function EncodeTab() {
     </>
   );
 }
-
-    
