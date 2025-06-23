@@ -177,7 +177,7 @@ export default function DecodeTab() {
             if (myMessageData) {
                 foundAnyMessage = true;
                 try {
-                    const myPrivateKey = await importEncryptionKey(identity.encryption.privateKey, []);
+                    const myPrivateKey = await importEncryptionKey(identity.encryption.privateKey, ['deriveKey']);
                     const decrypted = await decryptHybrid(myMessageData, myPrivateKey);
                     successfulDecryptions.push({ identityName: identity.name, message: decrypted });
                 } catch (e) {
@@ -195,7 +195,7 @@ export default function DecodeTab() {
         
         if (!foundAnyMessage) {
             setError("No message found for any of your identities in this file.");
-        } else if (localDecryptionError) {
+        } else if (successfulDecryptions.length === 0 && localDecryptionError) {
              // If we found at least one message but couldn't decrypt it, show an error.
             setError(localDecryptionError);
             toast({ variant: "destructive", title: "Decryption Issue", description: localDecryptionError });
