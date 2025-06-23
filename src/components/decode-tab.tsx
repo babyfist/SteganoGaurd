@@ -14,7 +14,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Upload, KeyRound, Lock, ShieldCheck, FileWarning, Loader2, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
-const SIGNATURE_LENGTH_BYTES = 64;
+const SIGNATURE_LENGTH_BYTES = 256; // Ed25519 signatures are 64 bytes, but ECDSA can be larger. 256 is safe.
 
 type DecodedData = {
   senderPublicKey?: JsonWebKey;
@@ -79,12 +79,11 @@ export default function DecodeTab() {
             // This is expected for signed files, so we continue.
         }
         
-        // If we're here, it must be a signed payload.
-        if (extractedBuffer.byteLength <= SIGNATURE_LENGTH_BYTES) {
+        const payloadLength = extractedBuffer.byteLength - SIGNATURE_LENGTH_BYTES;
+        if (payloadLength <= 0) {
             throw new Error("Extracted data is too small to contain a signature.");
         }
-
-        const payloadLength = extractedBuffer.byteLength - SIGNATURE_LENGTH_BYTES;
+        
         const payloadBuffer = extractedBuffer.slice(0, payloadLength);
         const signatureBuffer = extractedBuffer.slice(payloadLength);
         
@@ -313,7 +312,7 @@ export default function DecodeTab() {
         {error && (
             <Alert variant="destructive" className="mt-4">
                 <FileWarning className="h-4 w-4" />
-                <AlertTitle>File Error</AlertTitle>
+                <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
             </Alert>
         )}
@@ -321,5 +320,3 @@ export default function DecodeTab() {
     </Card>
   );
 }
-
-    
