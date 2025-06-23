@@ -170,7 +170,7 @@ export async function embedDataInGenericFile(coverFile: File, dataToEmbed: Array
   const dataLengthBuffer = new ArrayBuffer(8); // 64-bit integer for length
   new DataView(dataLengthBuffer).setBigUint64(0, BigInt(dataLength), false); // Use BigUint64, network byte order
 
-  // Appended data will be: [data][marker][length]
+  // Appended data will be: [cover][data][marker][length]
   const newFileBlob = new Blob([
     coverFileBuffer,
     dataToEmbed,
@@ -191,18 +191,21 @@ export async function extractDataFromGenericFile(stegoFile: File): Promise<Array
         throw new Error("File is too small to contain steganographic data.");
     }
 
-    const fileFooter = stegoFileBuffer.slice(-footerLength); // This is now [marker][length]
-    const potentialEodMarker = new Uint8Array(fileFooter.slice(eodMarkerLength)); // Read marker from the start of the footer
-    const lengthData = fileFooter.slice(0, eodMarkerLength); // Read length from the end of the footer
+    // Structure at end of file: ...[DATA][MARKER][LENGTH]
+    const lengthStart = stegoFileBuffer.byteLength - lengthMarkerLength;
+    const markerStart = lengthStart - eodMarkerLength;
+
+    const lengthData = stegoFileBuffer.slice(lengthStart);
+    const potentialEodMarker = new Uint8Array(stegoFileBuffer.slice(markerStart, lengthStart));
 
     if (!GENERIC_EOD_MARKER.every((val, i) => val === potentialEodMarker[i])) {
         throw new Error("Steganographic marker not found. This does not appear to be a valid SteganoGuard file.");
     }
 
     const lengthView = new DataView(lengthData);
-    const dataLength = Number(lengthView.getBigUint64(0, false));
+    const dataLength = Number(lengthView.getBigUint64(0, false)); // Big-endian
 
-    const dataEnd = stegoFileBuffer.byteLength - footerLength;
+    const dataEnd = markerStart;
     const dataStart = dataEnd - dataLength;
 
     if (dataStart < 0) {
