@@ -258,12 +258,14 @@ export default function KeyTab() {
    */
   const handleReorderContact = (identityId: string, contactIndex: number, direction: 'up' | 'down') => {
     const updatedIdentities = identities.map(identity => {
-        if (identity.id === identityId) {
+        // Find the correct identity and ensure it has a contacts array before proceeding.
+        // This prevents errors if data from localStorage is malformed.
+        if (identity.id === identityId && Array.isArray(identity.contacts)) {
             const reorderedContacts = [...identity.contacts];
             const targetIndex = direction === 'up' ? contactIndex - 1 : contactIndex + 1;
 
             if (targetIndex >= 0 && targetIndex < reorderedContacts.length) {
-                // Simple swap
+                // Simple swap of the elements at the two indices.
                 [reorderedContacts[contactIndex], reorderedContacts[targetIndex]] = [reorderedContacts[targetIndex], reorderedContacts[contactIndex]];
                 return { ...identity, contacts: reorderedContacts };
             }
