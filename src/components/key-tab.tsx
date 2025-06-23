@@ -154,33 +154,97 @@ export default function KeyTab() {
 
 
   const handleAddContact = async () => {
-    if (!pendingContactKeyFile || !contactName.trim() || !addingContactTo) {
-        toast({ variant: 'destructive', title: "Error", description: "Please provide a name and key file for the contact." });
+    if (!pendingContactKeyFile || !addingContactTo) {
+        toast({ variant: 'destructive', title: "Error", description: "Please select a key file." });
         return;
     }
+
     setIsLoading(true);
+
     try {
         const fileContent = await pendingContactKeyFile.text();
-        const keyData = JSON.parse(fileContent);
-
-        const publicKeys = await validatePublicKeys(keyData);
-
-        const newContact: Contact = {
-            id: uuidv4(),
-            name: contactName.trim(),
-            ...publicKeys,
-        };
-
-        setIdentities(identities.map(id => {
-            if (id.id === addingContactTo) {
-                return { ...id, contacts: [...(id.contacts || []), newContact] };
-            }
-            return id;
-        }));
+        const importedData = JSON.parse(fileContent);
         
-        toast({ title: "Success", description: `Contact "${contactName.trim()}" added.` });
-    } catch(err) {
-        toast({ variant: 'destructive', title: "Error Adding Contact", description: (err as Error).message });
+        const contactsToAdd: Contact[] = [];
+        let skippedCount = 0;
+
+        const identityToUpdate = identities.find(i => i.id === addingContactTo);
+        if (!identityToUpdate) {
+            throw new Error("Target identity not found.");
+        }
+        const existingContactNames = new Set(identityToUpdate.contacts.map(c => c.name.toLowerCase()));
+
+        if (Array.isArray(importedData)) { // Case 1: It's a contact list
+            for (const contactData of importedData) {
+                // Basic validation of the contact object from the list
+                if (!contactData.name || !contactData.signingPublicKey || !contactData.encryptionPublicKey) {
+                    continue; // Skip malformed entries
+                }
+                if (existingContactNames.has(contactData.name.toLowerCase())) {
+                    skippedCount++;
+                    continue;
+                }
+                
+                // Validate the keys before adding
+                await validatePublicKeys({
+                    signing: { publicKey: contactData.signingPublicKey },
+                    encryption: { publicKey: contactData.encryptionPublicKey },
+                });
+
+                contactsToAdd.push({
+                    id: contactData.id || uuidv4(),
+                    name: contactData.name,
+                    signingPublicKey: contactData.signingPublicKey,
+                    encryptionPublicKey: contactData.encryptionPublicKey,
+                });
+                existingContactNames.add(contactData.name.toLowerCase()); // Avoid duplicates within the same file
+            }
+        } else if (typeof importedData === 'object' && importedData !== null) { // Case 2: It's a single key file
+            if (!contactName.trim()) {
+                 toast({ variant: 'destructive', title: "Error", description: "Please provide a name for the new contact when importing a single key file." });
+                 setIsLoading(false);
+                 return;
+            }
+            if (existingContactNames.has(contactName.trim().toLowerCase())) {
+                toast({ variant: 'destructive', title: "Contact Exists", description: `A contact named "${contactName.trim()}" already exists.` });
+                setIsLoading(false);
+                return;
+            }
+
+            const publicKeys = await validatePublicKeys(importedData);
+            contactsToAdd.push({
+                id: uuidv4(),
+                name: contactName.trim(),
+                ...publicKeys,
+            });
+        } else {
+             throw new Error("Invalid or unrecognized file format. Please upload a valid public key file or a contact list file.");
+        }
+
+        if (contactsToAdd.length > 0) {
+            setIdentities(identities.map(id => {
+                if (id.id === addingContactTo) {
+                    return { ...id, contacts: [...(id.contacts || []), ...contactsToAdd] };
+                }
+                return id;
+            }));
+        }
+        
+        const addedCount = contactsToAdd.length;
+
+        if (addedCount > 0) {
+            toast({ title: "Success", description: `${addedCount} contact(s) added successfully.` });
+        }
+        if (skippedCount > 0) {
+            toast({ title: "Import Notice", description: `${skippedCount} contact(s) were skipped because a contact with the same name already exists.` });
+        }
+        if (addedCount === 0 && skippedCount === 0) {
+            toast({ title: "No Contacts Added", description: "The file did not contain any valid new contacts." });
+        }
+
+    } catch (err) {
+        const errorMessage = (err as Error).message;
+        toast({ variant: 'destructive', title: "Error Adding Contact", description: errorMessage });
     } finally {
         setIsLoading(false);
         setAddingContactTo(null);
@@ -390,15 +454,17 @@ export default function KeyTab() {
         <DialogContent>
             <DialogHeader>
             <DialogTitle className="text-primary">Add New Contact</DialogTitle>
-            <DialogDescription>Enter a name for this contact and select their public key file. The key file should be one that they have shared with you.</DialogDescription>
+            <DialogDescription>
+                Enter a name for a new contact and upload their public key file. You can also upload a contact list file to add multiple contacts at once.
+            </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="contact-name" className="text-primary">Contact Name</Label>
-                <Input id="contact-name" value={contactName} onChange={e => setContactName(e.target.value)} placeholder="e.g., Alice" />
+                <Input id="contact-name" value={contactName} onChange={e => setContactName(e.target.value)} placeholder="e.g., Alice (required for single key files)" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contact-key-file" className="text-primary">Contact Public Key File</Label>
+                <Label htmlFor="contact-key-file" className="text-primary">Contact Public Key / List File</Label>
                 <Input type="file" accept=".json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
                  <Button variant="outline" className="w-full" onClick={() => addContactRef.current?.click()}>
                     <Upload className="mr-2 h-4 w-4" />
@@ -408,7 +474,7 @@ export default function KeyTab() {
             </div>
             <DialogFooter>
                 <DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose>
-                <Button type="button" onClick={handleAddContact} disabled={isLoading || !contactName || !pendingContactKeyFile}>{isLoading ? <Loader2 className="animate-spin"/> : 'Save Contact'}</Button>
+                <Button type="button" onClick={handleAddContact} disabled={isLoading || !pendingContactKeyFile}>{isLoading ? <Loader2 className="animate-spin"/> : 'Save Contact(s)'}</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
