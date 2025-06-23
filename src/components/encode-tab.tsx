@@ -18,15 +18,14 @@ import { encryptSymmetric, encryptHybrid, importSigningKey, signData, textToArra
 import { embedDataInPng, embedDataInGenericFile } from '@/lib/steganography';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-const SIGNATURE_LENGTH_BYTES = 64;
-
 export default function EncodeTab() {
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [decoyMessage, setDecoyMessage] = useState('');
   const [password, setPassword] = useState('');
   const [secretMessage, setSecretMessage] = useState('');
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
-  
+  const [includeSignature, setIncludeSignature] = useState(true);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<{ url: string; fileName: string; isImage: boolean } | null>(null);
@@ -64,7 +63,6 @@ export default function EncodeTab() {
     };
   }, [result]);
   
-  // Effect to validate the temporary recipient's key
   useEffect(() => {
     if (!sendToNew) {
       setValidatedNewRecipient(null);
@@ -82,7 +80,7 @@ export default function EncodeTab() {
                 const keyData = JSON.parse(newRecipientKeyInput);
                 const publicKeys = await validatePublicKeys(keyData);
                 setValidatedNewRecipient({
-                    id: uuidv4(), // temporary id for this transaction
+                    id: uuidv4(),
                     name: newRecipientName.trim(),
                     ...publicKeys
                 });
@@ -93,7 +91,7 @@ export default function EncodeTab() {
             }
         };
         parseAndValidate();
-    }, 500); // Debounce validation
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [newRecipientKeyInput, newRecipientName, sendToNew]);
@@ -123,7 +121,6 @@ export default function EncodeTab() {
 
     const updatedIdentities = identities.map(identity => {
         if (identity.id === activeIdentityId) {
-            // Check if contact with same name already exists
             const contactExists = identity.contacts?.some(c => c.name.toLowerCase() === promptSaveContact.name.toLowerCase());
             if (contactExists) {
                 toast({ variant: "destructive", title: "Contact Exists", description: `A contact named "${promptSaveContact.name}" already exists.` });
@@ -142,8 +139,8 @@ export default function EncodeTab() {
   };
   
   const handleEncode = async () => {
-    if (!activeIdentity) {
-      setError("Please set an active identity in Key Management.");
+    if (includeSignature && !activeIdentity) {
+      setError("Please set an active identity to sign the message.");
       return;
     }
 
@@ -174,8 +171,6 @@ export default function EncodeTab() {
     setResult(null);
 
     try {
-        const privateSigningKey = await importSigningKey(activeIdentity.signing.privateKey, 'sign');
-        const publicSigningKeyJwk = activeIdentity.signing.publicKey;
         const encryptedDecoy = await encryptSymmetric(decoyMessage, password);
 
         const encryptedMessages = await Promise.all(recipientsToEncrypt.map(async (recipient) => {
@@ -188,22 +183,37 @@ export default function EncodeTab() {
             };
         }));
         
-        const payload = {
-            senderPublicKey: publicSigningKeyJwk,
+        const payload: {
+            senderPublicKey?: JsonWebKey;
+            decoy: any;
+            messages: any[];
+        } = {
             decoy: encryptedDecoy,
             messages: encryptedMessages,
         };
-        const payloadBuffer = textToArrayBuffer(JSON.stringify(payload));
-        const signature = await signData(privateSigningKey, payloadBuffer);
-        const combinedBuffer = new Uint8Array(payloadBuffer.byteLength + signature.byteLength);
-        combinedBuffer.set(new Uint8Array(payloadBuffer), 0);
-        combinedBuffer.set(new Uint8Array(signature), payloadBuffer.byteLength);
 
+        let dataToEmbed: ArrayBuffer;
+
+        if (includeSignature && activeIdentity) {
+            payload.senderPublicKey = activeIdentity.signing.publicKey;
+            const privateSigningKey = await importSigningKey(activeIdentity.signing.privateKey, 'sign');
+            const payloadBuffer = textToArrayBuffer(JSON.stringify(payload));
+            const signature = await signData(privateSigningKey, payloadBuffer);
+            
+            const combinedBuffer = new Uint8Array(payloadBuffer.byteLength + signature.byteLength);
+            combinedBuffer.set(new Uint8Array(payloadBuffer), 0);
+            combinedBuffer.set(new Uint8Array(signature), payloadBuffer.byteLength);
+            dataToEmbed = combinedBuffer.buffer;
+        } else {
+            const payloadBuffer = textToArrayBuffer(JSON.stringify(payload));
+            dataToEmbed = payloadBuffer;
+        }
+        
         if (coverImage.type === 'image/png') {
-            const stegoImageUrl = await embedDataInPng(coverImage, combinedBuffer.buffer);
+            const stegoImageUrl = await embedDataInPng(coverImage, dataToEmbed);
             setResult({ url: stegoImageUrl, fileName: 'steganographic-image.png', isImage: true });
         } else {
-            const stegoBlob = await embedDataInGenericFile(coverImage, combinedBuffer.buffer);
+            const stegoBlob = await embedDataInGenericFile(coverImage, dataToEmbed);
             const objectUrl = URL.createObjectURL(stegoBlob);
             setResult({ url: objectUrl, fileName: `stego-${coverImage.name}`, isImage: false });
         }
@@ -220,7 +230,7 @@ export default function EncodeTab() {
         setError(`Encoding failed: ${errorMessage}`);
         toast({ variant: "destructive", title: "Encoding Error", description: `An error occurred: ${errorMessage}` });
     } finally {
-        setIsLoading(false);
+        setIsLoading(true);
     }
   };
 
@@ -230,7 +240,7 @@ export default function EncodeTab() {
       <Card>
         <CardHeader>
           <CardTitle>Encode & Sign</CardTitle>
-          <CardDescription>Embed a secret message into a file, signed with your active identity.</CardDescription>
+          <CardDescription>Embed a secret message into a file, optionally signed with your active identity.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -263,7 +273,19 @@ export default function EncodeTab() {
                       {!isMounted ? (
                           <Alert><Loader2 className="h-4 w-4 animate-spin" /><AlertTitle>Loading Identity...</AlertTitle></Alert>
                       ) : activeIdentity ? (
-                          <Alert><ShieldCheck className="h-4 w-4" /><AlertTitle>Active Identity</AlertTitle><AlertDescription>{activeIdentity.name}</AlertDescription></Alert>
+                        <Alert>
+                           <ShieldCheck className="h-4 w-4" />
+                           <div className="flex justify-between items-center">
+                              <div>
+                                <AlertTitle>Active Identity</AlertTitle>
+                                <AlertDescription>{activeIdentity.name}</AlertDescription>
+                              </div>
+                              <div className="flex items-center space-x-2 pr-2">
+                                <Checkbox id="sign-checkbox" checked={includeSignature} onCheckedChange={(checked) => setIncludeSignature(Boolean(checked))} />
+                                <Label htmlFor="sign-checkbox" className="font-bold cursor-pointer">Sign</Label>
+                              </div>
+                           </div>
+                        </Alert>
                       ) : (
                           <Alert variant="destructive"><AlertTitle>No Active Identity</AlertTitle><AlertDescription>Go to Key Management to set an active identity.</AlertDescription></Alert>
                       )}
@@ -353,9 +375,9 @@ export default function EncodeTab() {
 
         </CardContent>
         <CardFooter>
-          <Button onClick={handleEncode} disabled={isLoading || !isMounted || !activeIdentity} className="w-full">
+          <Button onClick={handleEncode} disabled={isLoading || !isMounted || (includeSignature && !activeIdentity)} className="w-full">
               {isLoading ? <Loader2 className="animate-spin" /> : <Lock />}
-              Encode, Sign, and Embed
+              {includeSignature ? 'Encode, Sign, and Embed' : 'Encode and Embed'}
           </Button>
         </CardFooter>
       </Card>
@@ -377,3 +399,5 @@ export default function EncodeTab() {
     </>
   );
 }
+
+    

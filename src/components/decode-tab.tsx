@@ -8,16 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { extractDataFromPng, extractDataFromGenericFile } from '@/lib/steganography';
-import { decryptSymmetric, decryptHybrid, importSigningKey, importEncryptionKey, verifySignature, arrayBufferToText, getPublicKeyHash, exportKeyJwk } from '@/lib/crypto';
+import { decryptSymmetric, decryptHybrid, importSigningKey, importEncryptionKey, verifySignature, arrayBufferToText, getPublicKeyHash } from '@/lib/crypto';
 import { IdentityKeyPair } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Upload, KeyRound, Lock, ShieldCheck, FileWarning, Loader2 } from 'lucide-react';
+import { Upload, KeyRound, Lock, ShieldCheck, FileWarning, Loader2, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 const SIGNATURE_LENGTH_BYTES = 64;
 
 type DecodedData = {
-  senderPublicKey: JsonWebKey;
+  senderPublicKey?: JsonWebKey;
   decoy: { iv: string; ciphertext: string; };
   messages: { recipientPublicKeyHash: string; ephemeralPublicKey: JsonWebKey; iv: string; ciphertext:string; }[];
 };
@@ -31,7 +31,7 @@ export default function DecodeTab() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [decodedData, setDecodedData] = useState<DecodedData | null>(null);
-  const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  const [signatureState, setSignatureState] = useState<'valid' | 'invalid' | 'unsigned' | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   const [identities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
@@ -53,7 +53,7 @@ export default function DecodeTab() {
       setDecryptedDecoy('');
       setDecryptedMessage('');
       setDecryptionIdentityName('');
-      setIsVerified(null);
+      setSignatureState(null);
       setPassword('');
 
       try {
@@ -63,7 +63,23 @@ export default function DecodeTab() {
         } else {
             extractedBuffer = await extractDataFromGenericFile(stegoFile);
         }
+
+        // Try to parse the whole buffer as JSON. If it works, it's an unsigned message.
+        try {
+            const potentialUnsignedJson = arrayBufferToText(extractedBuffer);
+            const potentialUnsignedData: DecodedData = JSON.parse(potentialUnsignedJson);
+
+            if (potentialUnsignedData.decoy && potentialUnsignedData.messages && !potentialUnsignedData.senderPublicKey) {
+                setDecodedData(potentialUnsignedData);
+                setSignatureState('unsigned');
+                toast({ title: "Success", description: "Unsigned file data extracted." });
+                return;
+            }
+        } catch (e) {
+            // This is expected for signed files, so we continue.
+        }
         
+        // If we're here, it must be a signed payload.
         if (extractedBuffer.byteLength <= SIGNATURE_LENGTH_BYTES) {
             throw new Error("Extracted data is too small to contain a signature.");
         }
@@ -75,21 +91,27 @@ export default function DecodeTab() {
         const dataJson = arrayBufferToText(payloadBuffer);
         const data: DecodedData = JSON.parse(dataJson);
 
+        if (!data.senderPublicKey) {
+            throw new Error("Data appears to be signed but is missing sender's public key.");
+        }
+
         const senderSigningKey = await importSigningKey(data.senderPublicKey, 'verify');
         const verified = await verifySignature(senderSigningKey, signatureBuffer, payloadBuffer);
-        setIsVerified(verified);
         
         if (verified) {
             setDecodedData(data);
+            setSignatureState('valid');
             toast({ title: "Success", description: "File data extracted and signature verified." });
         } else {
+            setDecodedData(null); // Don't process data with an invalid signature
+            setSignatureState('invalid');
             toast({ variant: "destructive", title: "Verification Failed", description: "The file signature is invalid."})
         }
       } catch (err) {
         console.error(err);
         setError("Could not read hidden data from this file. Please ensure it's a valid SteganoGuard file that hasn't been modified.");
         toast({ variant: "destructive", title: "File Error", description: "Could not process the selected file." });
-        setIsVerified(null); // Keep this null so the signature alert doesn't show
+        setSignatureState(null);
       } finally {
         setIsLoading(false);
       }
@@ -121,10 +143,10 @@ export default function DecodeTab() {
 
   const handleMessageDecrypt = async () => {
     if (!decodedData) {
-      setError("Please upload and process an image first.");
+      setError("Please upload and process a file first.");
       return;
     }
-     if (isVerified === false) {
+     if (signatureState === 'invalid') {
         setError("Cannot decrypt message, signature is invalid.");
         return;
     }
@@ -155,7 +177,7 @@ export default function DecodeTab() {
                     setDecryptionIdentityName(identity.name);
                     toast({ title: "Message Decrypted", description: `Your secret message was decrypted with identity: ${identity.name}.` });
                     foundMessage = true;
-                    decryptionError = ''; // Clear error on success
+                    decryptionError = '';
                     break;
                 } catch (e) {
                     console.error(`Decryption failed for identity "${identity.name}":`, e);
@@ -179,6 +201,39 @@ export default function DecodeTab() {
       toast({ variant: "destructive", title: "Decryption Failed", description: errorMessage });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const renderSignatureAlert = () => {
+    if (!signatureState) return null;
+
+    switch (signatureState) {
+        case 'valid':
+            return (
+                <Alert>
+                    <ShieldCheck className="h-4 w-4 text-green-500" />
+                    <AlertTitle className="text-green-500">Signature Verified</AlertTitle>
+                    <AlertDescription>The integrity of the hidden data is confirmed.</AlertDescription>
+                </Alert>
+            );
+        case 'invalid':
+            return (
+                <Alert variant="destructive">
+                    <FileWarning className="h-4 w-4" />
+                    <AlertTitle>Signature Invalid!</AlertTitle>
+                    <AlertDescription>The file's digital signature does not match its content. This indicates the data may have been tampered with or corrupted. For security, message decryption is disabled.</AlertDescription>
+                </Alert>
+            );
+        case 'unsigned':
+            return (
+                <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Unsigned Message</AlertTitle>
+                    <AlertDescription>This file contains a hidden message but does not have a digital signature to verify its origin or integrity.</AlertDescription>
+                </Alert>
+            );
+        default:
+            return null;
     }
   };
 
@@ -206,17 +261,9 @@ export default function DecodeTab() {
             </div>
         )}
 
-        {isVerified !== null && (
-            <Alert variant={isVerified ? 'default' : 'destructive'}>
-                {isVerified ? <ShieldCheck className="h-4 w-4" /> : <FileWarning className="h-4 w-4" />}
-                <AlertTitle>{isVerified ? 'Signature Verified' : 'Signature Invalid!'}</AlertTitle>
-                <AlertDescription>
-                    {isVerified ? 'The integrity of the hidden data is confirmed.' : "The file's digital signature does not match its content. This indicates the data may have been tampered with or corrupted. For security, message decryption is disabled."}
-                </AlertDescription>
-            </Alert>
-        )}
+        {renderSignatureAlert()}
 
-        {decodedData && isVerified && (
+        {decodedData && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
               <div className="space-y-4">
@@ -240,7 +287,7 @@ export default function DecodeTab() {
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">3. Decrypt Your Message</h3>
                  <p className="text-sm text-muted-foreground">The app will automatically try all of your saved identities to find and decrypt your message.</p>
-                <Button onClick={handleMessageDecrypt} disabled={isLoading || isVerified === false || !isMounted || identities.length === 0} className="w-full">
+                <Button onClick={handleMessageDecrypt} disabled={isLoading || signatureState === 'invalid' || !isMounted || identities.length === 0} className="w-full">
                    {isLoading && !decryptedMessage ? <Loader2 className="animate-spin" /> : <Lock />}
                   Decrypt Message
                 </Button>
@@ -274,3 +321,5 @@ export default function DecodeTab() {
     </Card>
   );
 }
+
+    

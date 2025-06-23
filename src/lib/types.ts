@@ -27,3 +27,17 @@ export type Contact = {
   signingPublicKey: JsonWebKey;
   encryptionPublicKey: JsonWebKey;
 };
+
+// Data structure for the hidden payload
+export type SteganoPayload = {
+    senderPublicKey?: JsonWebKey;
+    decoy: { iv: string; ciphertext: string; };
+    messages: { 
+        recipientPublicKeyHash: string; 
+        ephemeralPublicKey: JsonWebKey; 
+        iv: string; 
+        ciphertext:string; 
+    }[];
+}
+
+    
