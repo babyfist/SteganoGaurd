@@ -5,6 +5,12 @@ const GENERIC_EOD_MARKER = new Uint8Array([83, 84, 69, 71, 71, 85, 65, 82, 68]);
 
 // --- PNG LSB Steganography Functions ---
 
+type StampOptions = {
+    text: string;
+    font: string;
+    size: number;
+};
+
 async function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -29,9 +35,23 @@ function getContext(img: HTMLImageElement): CanvasRenderingContext2D {
   return ctx;
 }
 
-export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer): Promise<string> {
+export async function embedDataInPng(
+    imageFile: File, 
+    dataToEmbed: ArrayBuffer,
+    stampOptions?: StampOptions
+): Promise<string> {
   const img = await loadImage(imageFile);
   const ctx = getContext(img);
+
+  if (stampOptions) {
+    ctx.font = `${stampOptions.size}px "${stampOptions.font}"`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    const padding = stampOptions.size > 16 ? stampOptions.size : 20;
+    ctx.fillText(stampOptions.text, img.width - padding, img.height - padding);
+  }
+
   const imageData = ctx.getImageData(0, 0, img.width, img.height);
   const pixels = imageData.data;
   
@@ -41,7 +61,6 @@ export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer):
   fullPayload.set(new Uint8Array(dataToEmbed), PNG_BOD_MARKER.length);
   fullPayload.set(PNG_EOD_MARKER, PNG_BOD_MARKER.length + dataLength);
 
-  // Use LSB of 11 pixels for 32-bit length header (11 pixels * 3 channels/pixel = 33 bits available)
   const HEADER_PIXELS = 11;
   const requiredPixels = HEADER_PIXELS + Math.ceil((fullPayload.length * 8) / 3);
   const maxPixels = pixels.length / 4;
@@ -50,19 +69,17 @@ export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer):
     throw new Error(`Image is too small. Needs space for ${requiredPixels} pixels, but has only ${maxPixels}.`);
   }
   
-  // Embed 32-bit dataLength into the LSBs of the first 11 pixels' RGB channels
   let headerBitIndex = 0;
   for (let i = 0; i < 32; i++) {
-    const bit = (dataLength >> (31 - i)) & 1; // Get bit from MSB to LSB
+    const bit = (dataLength >> (31 - i)) & 1;
     const pixelIndex = Math.floor(headerBitIndex / 3) * 4;
     const channelIndex = headerBitIndex % 3;
 
-    pixels[pixelIndex + 3] = 255; // Ensure pixel is opaque to avoid premultiplied alpha issues
+    pixels[pixelIndex + 3] = 255;
     pixels[pixelIndex + channelIndex] = (pixels[pixelIndex + channelIndex] & 0xFE) | bit;
     headerBitIndex++;
   }
   
-  // Embed payload starting after the header
   let payloadPixelIndex = HEADER_PIXELS * 4;
   let payloadBitIndex = 0;
 
@@ -73,7 +90,7 @@ export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer):
       const currentPixelIndex = payloadPixelIndex + (Math.floor(payloadBitIndex / 3) * 4);
       const channelIndex = payloadBitIndex % 3;
       
-      pixels[currentPixelIndex + 3] = 255; // Ensure opacity
+      pixels[currentPixelIndex + 3] = 255;
       pixels[currentPixelIndex + channelIndex] = (pixels[currentPixelIndex + channelIndex] & 0xFE) | bit;
       
       payloadBitIndex++;
@@ -84,7 +101,6 @@ export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer):
   return ctx.canvas.toDataURL('image/png');
 }
 
-// Helper function to extract bits from image
 function extractBitsFromImage(pixels: Uint8ClampedArray, startPixel: number, numBits: number): number[] | null {
     const extractedBits: number[] = [];
     let payloadPixelIndexOffset = startPixel * 4;
@@ -102,7 +118,6 @@ function extractBitsFromImage(pixels: Uint8ClampedArray, startPixel: number, num
     return extractedBits;
 }
 
-// Helper to convert bits to bytes
 function bitsToBytes(bits: number[]): Uint8Array {
     const bytes: number[] = [];
     for (let i = 0; i < bits.length; i += 8) {
@@ -125,7 +140,6 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
 
   const HEADER_PIXELS = 11;
   
-  // 1. Extract Length
   const lengthBits = extractBitsFromImage(pixels, 0, 32);
   if (!lengthBits) {
       throw new Error("Image is too small to contain a header.");
@@ -140,7 +154,6 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
       throw new Error("No valid SteganoGuard data found in image header.");
   }
 
-  // 2. Try New Format (BOD + data + EOD)
   const newFormatPayloadLength = PNG_BOD_MARKER.length + dataLength + PNG_EOD_MARKER.length;
   const newFormatBits = extractBitsFromImage(pixels, HEADER_PIXELS, newFormatPayloadLength * 8);
 
@@ -156,7 +169,6 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
       }
   }
   
-  // 3. Try Old Format (data + EOD)
   const oldFormatPayloadLength = dataLength + PNG_EOD_MARKER.length;
   const oldFormatBits = extractBitsFromImage(pixels, HEADER_PIXELS, oldFormatPayloadLength * 8);
 
@@ -169,7 +181,6 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
       }
   }
 
-  // 4. If neither worked
   throw new Error("Could not find a valid SteganoGuard message. The file may be corrupt or not encoded.");
 }
 
@@ -180,10 +191,9 @@ export async function embedDataInGenericFile(coverFile: File, dataToEmbed: Array
   const coverFileBuffer = await coverFile.arrayBuffer();
   
   const dataLength = dataToEmbed.byteLength;
-  const dataLengthBuffer = new ArrayBuffer(8); // 64-bit integer for length
-  new DataView(dataLengthBuffer).setBigUint64(0, BigInt(dataLength), false); // Use BigUint64, network byte order
+  const dataLengthBuffer = new ArrayBuffer(8);
+  new DataView(dataLengthBuffer).setBigUint64(0, BigInt(dataLength), false);
 
-  // Appended data will be: [cover][data][marker][length]
   const newFileBlob = new Blob([
     coverFileBuffer,
     dataToEmbed,
@@ -204,7 +214,6 @@ export async function extractDataFromGenericFile(stegoFile: File): Promise<Array
         throw new Error("File is too small to contain steganographic data.");
     }
 
-    // Structure at end of file: ...[DATA][MARKER][LENGTH]
     const lengthStart = stegoFileBuffer.byteLength - lengthMarkerLength;
     const markerStart = lengthStart - eodMarkerLength;
 
@@ -216,7 +225,7 @@ export async function extractDataFromGenericFile(stegoFile: File): Promise<Array
     }
 
     const lengthView = new DataView(lengthData);
-    const dataLength = Number(lengthView.getBigUint64(0, false)); // Big-endian
+    const dataLength = Number(lengthView.getBigUint64(0, false));
 
     const dataEnd = markerStart;
     const dataStart = dataEnd - dataLength;

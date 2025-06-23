@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
@@ -40,6 +41,12 @@ export default function EncodeTab() {
   const [validatedNewRecipient, setValidatedNewRecipient] = useState<Contact | null>(null);
   const [newRecipientError, setNewRecipientError] = useState('');
   const [promptSaveContact, setPromptSaveContact] = useState<Contact | null>(null);
+
+  // State for the visible stamp/watermark
+  const [includeStamp, setIncludeStamp] = useState(true);
+  const [stampText, setStampText] = useState('');
+  const [stampFont, setStampFont] = useState('Arial');
+  const [stampSize, setStampSize] = useState(16);
   
   const activeIdentity = identities.find(id => id.id === activeIdentityId);
   const contacts = activeIdentity?.contacts || [];
@@ -171,6 +178,23 @@ export default function EncodeTab() {
     setResult(null);
 
     try {
+        let stampOptions: any = null;
+        if (includeStamp && coverImage?.type.startsWith('image/')) {
+            let textToStamp = stampText.trim();
+            if (!textToStamp && activeIdentity) {
+                const hash = await getPublicKeyHash(activeIdentity.signing.publicKey);
+                textToStamp = `SGID:${hash.substring(0, 16)}...`;
+            }
+            
+            if(textToStamp) {
+                stampOptions = {
+                    text: textToStamp,
+                    font: stampFont,
+                    size: stampSize,
+                };
+            }
+        }
+
         const encryptedDecoy = await encryptSymmetric(decoyMessage, password);
 
         const encryptedMessages = await Promise.all(recipientsToEncrypt.map(async (recipient) => {
@@ -210,7 +234,7 @@ export default function EncodeTab() {
         }
         
         if (coverImage.type.startsWith('image/')) {
-            const stegoImageUrl = await embedDataInPng(coverImage, dataToEmbed);
+            const stegoImageUrl = await embedDataInPng(coverImage, dataToEmbed, stampOptions);
             setResult({ url: stegoImageUrl, fileName: 'steganographic-image.png', isImage: true });
         } else {
             const stegoBlob = await embedDataInGenericFile(coverImage, dataToEmbed);
@@ -290,7 +314,52 @@ export default function EncodeTab() {
                           <Alert variant="destructive"><AlertTitle>No Active Identity</AlertTitle><AlertDescription>Go to Key Management to set an active identity.</AlertDescription></Alert>
                       )}
                   </div>
-                  
+
+                  {coverImage?.type.startsWith('image/') && (
+                    <div className="space-y-4 pt-4">
+                        <h4 className="font-semibold">Visible Watermark</h4>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="stamp-checkbox" checked={includeStamp} onCheckedChange={(checked) => setIncludeStamp(Boolean(checked))} />
+                            <Label htmlFor="stamp-checkbox" className="cursor-pointer">Add a visible watermark to the image</Label>
+                        </div>
+
+                        {includeStamp && (
+                            <div className="space-y-4 p-4 border rounded-md bg-muted/50">
+                                <div className="space-y-2">
+                                    <Label htmlFor="stamp-text">Watermark Text</Label>
+                                    <Input id="stamp-text" value={stampText} onChange={e => setStampText(e.target.value)} placeholder="Defaults to public key hash" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="stamp-font">Font</Label>
+                                        <Select value={stampFont} onValueChange={setStampFont}>
+                                            <SelectTrigger id="stamp-font"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Arial">Arial</SelectItem>
+                                                <SelectItem value="Verdana">Verdana</SelectItem>
+                                                <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                                                <SelectItem value="Courier New">Courier New</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="stamp-size">Font Size</Label>
+                                        <Select value={String(stampSize)} onValueChange={(val) => setStampSize(Number(val))}>
+                                            <SelectTrigger id="stamp-size"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="12">12px</SelectItem>
+                                                <SelectItem value="16">16px</SelectItem>
+                                                <SelectItem value="24">24px</SelectItem>
+                                                <SelectItem value="32">32px</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                           <Checkbox id="send-to-new" checked={sendToNew} onCheckedChange={(checked) => setSendToNew(Boolean(checked))} />
