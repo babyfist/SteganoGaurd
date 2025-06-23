@@ -287,7 +287,7 @@ export default function EncodeTab() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Encode & Sign</CardTitle>
+          <CardTitle>Encode &amp; Sign</CardTitle>
           <CardDescription>Embed a secret message into a file, optionally signed with your active identity.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -330,9 +330,17 @@ export default function EncodeTab() {
                                 <AlertTitle>Active Identity</AlertTitle>
                                 <AlertDescription>{activeIdentity.name}</AlertDescription>
                               </div>
-                              <div className="flex items-center space-x-2 pr-2">
-                                <Checkbox id="sign-checkbox" checked={includeSignature} onCheckedChange={(checked) => setIncludeSignature(Boolean(checked))} />
-                                <Label htmlFor="sign-checkbox" className="font-bold cursor-pointer">Sign</Label>
+                              <div className="flex items-center space-x-4 pr-2">
+                                {coverImage?.type.startsWith('image/') && (
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox id="stamp-checkbox" checked={includeStamp} onCheckedChange={(checked) => setIncludeStamp(Boolean(checked))} />
+                                        <Label htmlFor="stamp-checkbox" className="font-normal cursor-pointer">Watermark</Label>
+                                    </div>
+                                )}
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox id="sign-checkbox" checked={includeSignature} onCheckedChange={(checked) => setIncludeSignature(Boolean(checked))} />
+                                    <Label htmlFor="sign-checkbox" className="font-bold cursor-pointer">Sign</Label>
+                                </div>
                               </div>
                            </div>
                         </Alert>
@@ -341,48 +349,40 @@ export default function EncodeTab() {
                       )}
                   </div>
 
-                  {/* Watermark Section */}
-                  {coverImage?.type.startsWith('image/') && (
-                    <div className="space-y-4 pt-4">
-                        <h4 className="font-semibold">Visible Watermark</h4>
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="stamp-checkbox" checked={includeStamp} onCheckedChange={(checked) => setIncludeStamp(Boolean(checked))} />
-                            <Label htmlFor="stamp-checkbox" className="cursor-pointer">Add a visible watermark to the image</Label>
+                  {/* Watermark Options Section */}
+                  {coverImage?.type.startsWith('image/') && includeStamp && (
+                    <div className="space-y-4 p-4 border rounded-md bg-muted/50">
+                        <h4 className="font-semibold">Visible Watermark Options</h4>
+                        <div className="space-y-2">
+                            <Label htmlFor="stamp-text">Watermark Text</Label>
+                            <Input id="stamp-text" value={stampText} onChange={e => setStampText(e.target.value)} placeholder="Defaults to public key hash" />
                         </div>
-                        {includeStamp && (
-                            <div className="space-y-4 p-4 border rounded-md bg-muted/50">
-                                <div className="space-y-2">
-                                    <Label htmlFor="stamp-text">Watermark Text</Label>
-                                    <Input id="stamp-text" value={stampText} onChange={e => setStampText(e.target.value)} placeholder="Defaults to public key hash" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="stamp-font">Font</Label>
-                                        <Select value={stampFont} onValueChange={setStampFont}>
-                                            <SelectTrigger id="stamp-font"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Arial">Arial</SelectItem>
-                                                <SelectItem value="Verdana">Verdana</SelectItem>
-                                                <SelectItem value="Times New Roman">Times New Roman</SelectItem>
-                                                <SelectItem value="Courier New">Courier New</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="stamp-size">Font Size</Label>
-                                        <Select value={String(stampSize)} onValueChange={(val) => setStampSize(Number(val))}>
-                                            <SelectTrigger id="stamp-size"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="12">12px</SelectItem>
-                                                <SelectItem value="16">16px</SelectItem>
-                                                <SelectItem value="24">24px</SelectItem>
-                                                <SelectItem value="32">32px</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="stamp-font">Font</Label>
+                                <Select value={stampFont} onValueChange={setStampFont}>
+                                    <SelectTrigger id="stamp-font"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Arial">Arial</SelectItem>
+                                        <SelectItem value="Verdana">Verdana</SelectItem>
+                                        <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                                        <SelectItem value="Courier New">Courier New</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        )}
+                            <div className="space-y-2">
+                                <Label htmlFor="stamp-size">Font Size</Label>
+                                <Select value={String(stampSize)} onValueChange={(val) => setStampSize(Number(val))}>
+                                    <SelectTrigger id="stamp-size"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="12">12px</SelectItem>
+                                        <SelectItem value="16">16px</SelectItem>
+                                        <SelectItem value="24">24px</SelectItem>
+                                        <SelectItem value="32">32px</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                     </div>
                   )}
 
