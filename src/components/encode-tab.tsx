@@ -209,7 +209,7 @@ export default function EncodeTab() {
             dataToEmbed = payloadBuffer;
         }
         
-        if (coverImage.type === 'image/png') {
+        if (coverImage.type.startsWith('image/')) {
             const stegoImageUrl = await embedDataInPng(coverImage, dataToEmbed);
             setResult({ url: stegoImageUrl, fileName: 'steganographic-image.png', isImage: true });
         } else {
@@ -247,8 +247,8 @@ export default function EncodeTab() {
               <div className="space-y-4">
                   <h3 className="font-semibold text-lg">1. Inputs</h3>
                   <div className="space-y-2">
-                      <Label htmlFor="cover-image">Cover File</Label>
-                      <Input id="cover-image" type="file" accept="image/png,audio/*,video/*,.pdf,.doc,.docx" ref={coverImageRef} onChange={(e) => setCoverImage(e.target.files?.[0] || null)} className="hidden"/>
+                      <Label htmlFor="cover-image">Cover File (Images are converted to PNG)</Label>
+                      <Input id="cover-image" type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx" ref={coverImageRef} onChange={(e) => setCoverImage(e.target.files?.[0] || null)} className="hidden"/>
                       <Button variant="outline" onClick={() => coverImageRef.current?.click()} className="w-full">
                           <ImageIcon /> {coverImage ? coverImage.name : "Select Cover File"}
                       </Button>
