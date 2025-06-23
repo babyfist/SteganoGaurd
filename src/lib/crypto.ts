@@ -156,16 +156,6 @@ function bufferToHex(buffer: ArrayBuffer): string {
     return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export function downloadJson(data: object, filename: string) {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", filename);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-}
-
 export async function validatePublicKeys(keyData: any): Promise<{ signingPublicKey: JsonWebKey, encryptionPublicKey: JsonWebKey }> {
     if (!keyData.signing?.publicKey || !keyData.encryption?.publicKey) {
         throw new Error("Invalid key file. Must contain public signing and encryption keys.");
