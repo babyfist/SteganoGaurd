@@ -17,7 +17,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
 import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, importSigningKey, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
 import { downloadJson } from '@/lib/utils';
-import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Pencil, Copy } from 'lucide-react';
+import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Pencil, Copy, ArrowUp, ArrowDown } from 'lucide-react';
 
 /**
  * The KeyTab component is responsible for all identity and contact management.
@@ -250,6 +250,29 @@ export default function KeyTab() {
     toast({ title: "Contact Deleted" });
   };
 
+  /**
+   * Reorders a contact within an identity's contact list.
+   * @param {string} identityId - The ID of the identity whose contacts are being reordered.
+   * @param {number} contactIndex - The current index of the contact to move.
+   * @param {'up' | 'down'} direction - The direction to move the contact.
+   */
+  const handleReorderContact = (identityId: string, contactIndex: number, direction: 'up' | 'down') => {
+    const updatedIdentities = identities.map(identity => {
+        if (identity.id === identityId) {
+            const reorderedContacts = [...identity.contacts];
+            const targetIndex = direction === 'up' ? contactIndex - 1 : contactIndex + 1;
+
+            if (targetIndex >= 0 && targetIndex < reorderedContacts.length) {
+                // Simple swap
+                [reorderedContacts[contactIndex], reorderedContacts[targetIndex]] = [reorderedContacts[targetIndex], reorderedContacts[contactIndex]];
+                return { ...identity, contacts: reorderedContacts };
+            }
+        }
+        return identity;
+    });
+    setIdentities(updatedIdentities);
+  };
+
   /** Exports a full identity (including private keys) to a backup JSON file. */
   const exportIdentity = (id: string) => {
       const identity = identities.find(i => i.id === id);
@@ -380,9 +403,33 @@ export default function KeyTab() {
                         <h4 className="font-semibold flex items-center gap-2 pt-4 border-t"><Users className="h-4 w-4" /> Contacts for this Identity</h4>
                         <div className="space-y-2">
                           {identity.contacts?.length === 0 && <p className="text-sm text-muted-foreground">No contacts found for this identity.</p>}
-                          {identity.contacts?.map(contact => (
+                          {identity.contacts?.map((contact, index) => (
                             <div key={contact.id} className="flex items-center justify-between p-2 rounded-lg border bg-background hover:bg-muted/50">
-                                <span className="font-medium">{contact.name}</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex flex-col -my-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                            onClick={() => handleReorderContact(identity.id, index, 'up')}
+                                            disabled={index === 0}
+                                            aria-label="Move contact up"
+                                        >
+                                            <ArrowUp className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                            onClick={() => handleReorderContact(identity.id, index, 'down')}
+                                            disabled={!identity.contacts || index === identity.contacts.length - 1}
+                                            aria-label="Move contact down"
+                                        >
+                                            <ArrowDown className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <span className="font-medium">{contact.name}</span>
+                                </div>
                                 {/* Contact Actions Dropdown */}
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -464,3 +511,5 @@ export default function KeyTab() {
     </>
   );
 }
+
+    
