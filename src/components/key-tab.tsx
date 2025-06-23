@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
 import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, downloadJson, importSigningKey, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
-import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Share2, Pencil } from 'lucide-react';
+import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Share2, Pencil, Copy } from 'lucide-react';
 
 export default function KeyTab() {
   const [isLoading, setIsLoading] = useState(false);
@@ -176,7 +176,6 @@ export default function KeyTab() {
 
         if (Array.isArray(importedData)) { // Case 1: It's a contact list
             for (const contactData of importedData) {
-                // Basic validation of the contact object from the list
                 if (!contactData.name || !contactData.signingPublicKey || !contactData.encryptionPublicKey) {
                     continue; // Skip malformed entries
                 }
@@ -185,7 +184,6 @@ export default function KeyTab() {
                     continue;
                 }
                 
-                // Validate the keys before adding
                 await validatePublicKeys({
                     signing: { publicKey: contactData.signingPublicKey },
                     encryption: { publicKey: contactData.encryptionPublicKey },
@@ -197,7 +195,7 @@ export default function KeyTab() {
                     signingPublicKey: contactData.signingPublicKey,
                     encryptionPublicKey: contactData.encryptionPublicKey,
                 });
-                existingContactNames.add(contactData.name.toLowerCase()); // Avoid duplicates within the same file
+                existingContactNames.add(contactData.name.toLowerCase());
             }
         } else if (typeof importedData === 'object' && importedData !== null) { // Case 2: It's a single key file
             if (!contactName.trim()) {
@@ -293,6 +291,28 @@ export default function KeyTab() {
           downloadJson(publicData, `steganoguard_public-keys_${identity.name.replace(/\s/g, '_')}.json`);
           toast({title: "Public Key Exported", description: "The file can now be shared with your contacts."})
       }
+  };
+
+  const handleShareContactCopy = (contact: Contact) => {
+    const publicData = {
+        name: contact.name,
+        description: `SteganoGuard Public Keys for ${contact.name}`,
+        signing: { publicKey: contact.signingPublicKey },
+        encryption: { publicKey: contact.encryptionPublicKey },
+    };
+    navigator.clipboard.writeText(JSON.stringify(publicData, null, 2));
+    toast({ title: "Copied to Clipboard", description: `Public key for ${contact.name} has been copied.` });
+  };
+  
+  const handleShareContactDownload = (contact: Contact) => {
+      const publicData = {
+          name: contact.name,
+          description: `SteganoGuard Public Keys for ${contact.name}`,
+          signing: { publicKey: contact.signingPublicKey },
+          encryption: { publicKey: contact.encryptionPublicKey },
+      };
+      downloadJson(publicData, `steganoguard_public-keys_${contact.name.replace(/\s/g, '_')}.json`);
+      toast({title: "Public Key Downloaded", description: `A file with public keys for ${contact.name} has been downloaded.`});
   };
 
   const handleExportContacts = (identityId: string) => {
@@ -397,16 +417,42 @@ export default function KeyTab() {
                           {identity.contacts?.map(contact => (
                             <div key={contact.id} className="flex items-center justify-between p-2 rounded-lg border bg-background hover:bg-muted/50">
                                 <span className="font-medium">{contact.name}</span>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                      <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will delete "{contact.name}" from your contacts for this identity.</AlertDialogDescription></AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                          <AlertDialogAction onClick={() => deleteContact(identity.id, contact.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => handleShareContactCopy(contact)}>
+                                            <Copy className="mr-2 h-4 w-4" />
+                                            <span>Copy Public Key</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleShareContactDownload(contact)}>
+                                            <Download className="mr-2 h-4 w-4" />
+                                            <span>Download Public Key</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-500 focus:text-red-500">
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    <span>Delete...</span>
+                                                </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Delete Contact?</AlertDialogTitle>
+                                                    <AlertDialogDescription>This will delete "{contact.name}" from your contacts for this identity.</AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => deleteContact(identity.id, contact.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                           ))}
                         </div>
@@ -431,7 +477,6 @@ export default function KeyTab() {
         </CardContent>
       </Card>
 
-      {/* Rename Identity Dialog */}
       <Dialog open={!!editingIdentity} onOpenChange={(isOpen) => !isOpen && setEditingIdentity(null)}>
         <DialogContent>
             <DialogHeader>
@@ -449,7 +494,6 @@ export default function KeyTab() {
         </DialogContent>
       </Dialog>
       
-      {/* Add Contact Dialog */}
        <Dialog open={!!addingContactTo} onOpenChange={(isOpen) => { if(!isOpen) { setAddingContactTo(null); setContactName(''); setPendingContactKeyFile(null); if (addContactRef.current) addContactRef.current.value = ""; }}}>
         <DialogContent>
             <DialogHeader>
@@ -466,7 +510,7 @@ export default function KeyTab() {
               <div className="space-y-2">
                 <Label htmlFor="contact-key-file" className="text-primary">Contact Public Key / List File</Label>
                 <Input type="file" accept=".json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
-                 <Button variant="outline" className="w-full justify-start" onClick={() => addContactRef.current?.click()}>
+                 <Button variant="outline" className="w-full justify-start text-muted-foreground" onClick={() => addContactRef.current?.click()}>
                     <Upload className="mr-2 h-4 w-4" />
                     {pendingContactKeyFile ? pendingContactKeyFile.name : "Select key file..."}
                  </Button>
@@ -481,3 +525,5 @@ export default function KeyTab() {
     </>
   );
 }
+
+    
