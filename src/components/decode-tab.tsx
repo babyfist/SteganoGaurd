@@ -113,9 +113,9 @@ export default function DecodeTab() {
             toast({ variant: "destructive", title: "Verification Failed", description: "The file signature is invalid."})
         }
       } catch (err) {
-        console.error(err);
-        setError("Could not read hidden data from this file. Please ensure it's a valid SteganoGuard file that hasn't been modified.");
-        toast({ variant: "destructive", title: "File Error", description: "Could not process the selected file." });
+        // This catch block handles expected errors from file processing (e.g., not a valid SteganoGuard file).
+        // We display an error in the UI instead of logging to the console or showing a toast.
+        setError("This file cannot be opened. Please select a valid SteganoGuard file that has not been modified.");
         setSignatureState(null);
       } finally {
         setIsLoading(false);
