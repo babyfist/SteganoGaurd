@@ -422,7 +422,7 @@ export default function EncodeTab() {
                         <div className="space-y-2">
                             <Label htmlFor="new-recipient-key">Recipient Public Key</Label>
                             <Textarea id="new-recipient-key" value={newRecipientKeyInput} onChange={e => setNewRecipientKeyInput(e.target.value)} placeholder="Paste the recipient's public key JSON here" rows={3} />
-                            <Input id="new-recipient-file" type="file" accept=".json,application/json" ref={newRecipientKeyFileRef} onChange={(e) => handleNewRecipientFile(e.target.files?.[0] || null)} className="hidden"/>
+                            <Input id="new-recipient-file" type="file" ref={newRecipientKeyFileRef} onChange={(e) => handleNewRecipientFile(e.target.files?.[0] || null)} className="hidden"/>
                             <Label htmlFor="new-recipient-file" className={cn(buttonVariants({ variant: "link" }), "p-0 h-auto cursor-pointer")}>
                               Or upload a key file
                             </Label>
