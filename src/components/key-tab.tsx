@@ -453,7 +453,7 @@ export default function KeyTab() {
        <Dialog open={!!addingContactTo} onOpenChange={(isOpen) => { if(!isOpen) { setAddingContactTo(null); setContactName(''); setPendingContactKeyFile(null); if (addContactRef.current) addContactRef.current.value = ""; }}}>
         <DialogContent>
             <DialogHeader>
-            <DialogTitle className="text-primary">Add New Contact</DialogTitle>
+            <DialogTitle>Add New Contact</DialogTitle>
             <DialogDescription>
                 Enter a name for a new contact and upload their public key file. You can also upload a contact list file to add multiple contacts at once.
             </DialogDescription>
@@ -466,7 +466,7 @@ export default function KeyTab() {
               <div className="space-y-2">
                 <Label htmlFor="contact-key-file" className="text-primary">Contact Public Key / List File</Label>
                 <Input type="file" accept=".json" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
-                 <Button variant="outline" className="w-full" onClick={() => addContactRef.current?.click()}>
+                 <Button variant="outline" className="w-full justify-start" onClick={() => addContactRef.current?.click()}>
                     <Upload className="mr-2 h-4 w-4" />
                     {pendingContactKeyFile ? pendingContactKeyFile.name : "Select key file..."}
                  </Button>
