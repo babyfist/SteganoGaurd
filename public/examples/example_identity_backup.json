@@ -1,38 +1,50 @@
 {
-  "id": "example-alice-123",
+  "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
   "name": "Alice (Example)",
-  "description": "SteganoGuard Example Identity Key Pair",
+  "description": "SteganoGuard Identity Key Pair",
   "signing": {
     "publicKey": {
       "kty": "OKP",
       "crv": "Ed25519",
-      "x": "T3_2Yg_f4C9c-r6k-pD4D8X_7Yh-lB9s-fD1_2Yg-rA",
-      "ext": true
+      "x": "T0fLgT2c3a-g8L_Y_U8zR_W6nZ_y9bV_x8G_H7k4N3c"
     },
     "privateKey": {
       "kty": "OKP",
       "crv": "Ed25519",
-      "x": "T3_2Yg_f4C9c-r6k-pD4D8X_7Yh-lB9s-fD1_2Yg-rA",
-      "d": "aB_cDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoM",
-      "ext": true
+      "x": "T0fLgT2c3a-g8L_Y_U8zR_W6nZ_y9bV_x8G_H7k4N3c",
+      "d": "bXl-c3VwZXItc2VjcmV0LXNpZ25pbmcta2V5LWdvaW5nLWhlcmU"
     }
   },
   "encryption": {
     "publicKey": {
       "kty": "EC",
       "crv": "P-256",
-      "x": "aB_cDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoP",
-      "y": "qRsTuVwXyZaBcDeFgHiJkLmNoPaB_cDeFgHiJkLmNoQ",
-      "ext": true
+      "x": "Ua5b_j2w-F6L_c3d_E9o_Z5f_X6k_Y4m_U7r_V9p_A8",
+      "y": "e_Xy8_Z_aBcDeFgHiJkLmNoPqRsTuVwXyZ_1_2_3"
     },
     "privateKey": {
       "kty": "EC",
       "crv": "P-256",
-      "x": "aB_cDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoP",
-      "y": "qRsTuVwXyZaBcDeFgHiJkLmNoPaB_cDeFgHiJkLmNoQ",
-      "d": "lB9s-fD1_2Yg-rAT3_2Yg_f4C9c-r6k-pD4D8X_7Yh-",
-      "ext": true
+      "x": "Ua5b_j2w-F6L_c3d_E9o_Z5f_X6k_Y4m_U7r_V9p_A8",
+      "y": "e_Xy8_Z_aBcDeFgHiJkLmNoPqRsTuVwXyZ_1_2_3",
+      "d": "c3VwZXItc2VjcmV0LWVjZGgtcHJpdmF0ZS1rZXk"
     }
   },
-  "contacts": []
+  "contacts": [
+    {
+      "id": "f6e5d4c3-b2a1-0987-6543-210987654321",
+      "name": "Bob",
+      "signingPublicKey": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "Lp_xR9a_bC7D_eF5G_hI9j_kL8m_N7oP_qR7s_T5uVw"
+      },
+      "encryptionPublicKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "e9f8_G7h_I5j_kL3m_N1o_Pq2r_S4t_U6v8w_X0y_Z_a",
+        "y": "a1b2_c3d_E4f_G5h_I6j_kL7m_N8o_P9q_R0s_T1u"
+      }
+    }
+  ]
 }

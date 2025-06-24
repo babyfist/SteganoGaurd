@@ -1,44 +1,40 @@
 [
-  {
-    "name": "Bob (Example)",
-    "description": "SteganoGuard Public Keys for Bob (Example)",
-    "signing": {
-      "publicKey": {
-        "kty": "OKP",
-        "crv": "Ed25519",
-        "x": "U4_3Zh_g5D0d-s7l-qE5E9Y_8Zi-mC0t-gE2_3Zh-sB",
-        "ext": true
-      }
+    {
+        "name": "Charlie (Example)",
+        "description": "Public keys for Charlie",
+        "signing": {
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "cHaRlIe_sIgNiNg_pUbLiC_kEy_dAtA_hErE_123"
+          }
+        },
+        "encryption": {
+          "publicKey": {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "cHaRlIe_eNcRyPtIoN_x_pOiNt_dAtA_hErE_456",
+            "y": "cHaRlIe_eNcRyPtIoN_y_pOiNt_dAtA_hErE_789"
+          }
+        }
     },
-    "encryption": {
-      "publicKey": {
-        "kty": "EC",
-        "crv": "P-256",
-        "x": "bC_dEfGhIjKlMnOpQrStUvWxYzAbCdEfGhIjKlMnOpQ",
-        "y": "rStUvWxYzAbCdEfGhIjKlMnOpbC_dEfGhIjKlMnOpQ",
-        "ext": true
-      }
+    {
+        "name": "Diana (Example)",
+        "description": "Public keys for Diana",
+        "signing": {
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "dIAnA_sIgNiNg_KeY_dAtA_gOeS_hErE_aBcDeF"
+          }
+        },
+        "encryption": {
+          "publicKey": {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "dIAnA_eNcRyPtIoN_x_VaLuE_gOeS_hErE_gHiJk",
+            "y": "dIAnA_eNcRyPtIoN_y_VaLuE_gOeS_hErE_lMnOp"
+          }
+        }
     }
-  },
-  {
-    "name": "Charlie (Example)",
-    "description": "SteganoGuard Public Keys for Charlie (Example)",
-    "signing": {
-      "publicKey": {
-        "kty": "OKP",
-        "crv": "Ed25519",
-        "x": "V5_4ai_h6E1e-t8m-rF6F0Z_9aj-nD1u-hF3_4ai-tC",
-        "ext": true
-      }
-    },
-    "encryption": {
-      "publicKey": {
-        "kty": "EC",
-        "crv": "P-256",
-        "x": "cD_eFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPq",
-        "y": "sTuVwXyZaBcDeFgHiJkLmNoPcD_eFgHiJkLmNoPqR",
-        "ext": true
-      }
-    }
-  }
 ]
