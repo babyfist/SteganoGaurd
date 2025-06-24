@@ -27,7 +27,7 @@ const options = {
     path.join(outDir, '**/*.css'),
     path.join(newNextDir, '**/*.js'),
   ],
-  from: /_next\//g,
+  from: /\/_next\//g,
   to: 'next-assets/',
   allowEmptyPaths: true,
 };
