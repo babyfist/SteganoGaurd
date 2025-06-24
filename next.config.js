@@ -2,7 +2,6 @@
 const nextConfig = {
   // Enable static export for web extension packaging
   output: 'export',
-  assetPrefix: './',
 
   /* config options here */
   typescript: {

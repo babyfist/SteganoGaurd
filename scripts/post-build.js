@@ -21,14 +21,14 @@ if (fs.existsSync(oldNextDir)) {
 }
 
 // 2. Define options for replace-in-file to fix asset paths.
-// We need to replace all relative "./_next" paths with "./next-assets".
+// We need to replace all absolute "/_next" paths with relative "./next-assets" paths.
 const options = {
   files: [
     path.join(outDir, '**/*.html'),
     path.join(outDir, '**/*.css'),
     path.join(newNextDir, '**/*.js'),
   ],
-  from: /\.\/_next/g,
+  from: /\/_next/g,
   to: './next-assets',
   allowEmptyPaths: true,
 };
