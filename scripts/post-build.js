@@ -1,7 +1,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const replace = require('replace-in-file');
 
 const outDir = path.join(__dirname, '..', 'out');
 const oldNextDir = path.join(outDir, '_next');
@@ -34,23 +33,27 @@ const options = {
   allowEmptyPaths: true,
 };
 
-// 3. Run the replacement
-try {
-  if (fs.existsSync(outDir)) {
-    const results = replace.sync(options);
-    const changedFiles = results.filter(r => r.hasChanged).map(r => path.relative(outDir, r.file));
-    if (changedFiles.length > 0) {
-      console.log('Replaced asset paths in:', changedFiles);
-    } else {
-      console.log('No asset paths needed replacement.');
+// 3. Run the replacement using a dynamic import for the ESM-only package.
+(async function() {
+    try {
+        if (fs.existsSync(outDir)) {
+            // Dynamically import the ESM package
+            const { replaceInFileSync } = await import('replace-in-file');
+            
+            const results = replaceInFileSync(options);
+            const changedFiles = results.filter(r => r.hasChanged).map(r => path.relative(outDir, r.file));
+            if (changedFiles.length > 0) {
+                console.log('Replaced asset paths in:', changedFiles);
+            } else {
+                console.log('No asset paths needed replacement.');
+            }
+        } else {
+            console.log('`out` directory not found, skipping path replacement.');
+        }
+    } catch (error) {
+        console.error('Error occurred during file replacement:', error);
+        process.exit(1);
     }
-  } else {
-    console.log('`out` directory not found, skipping path replacement.');
-  }
-} catch (error)
-{
-  console.error('Error occurred during file replacement:', error);
-  process.exit(1);
-}
-
-console.log('Post-build script completed successfully.');
+    
+    console.log('Post-build script completed successfully.');
+})();
