@@ -1,40 +1,41 @@
+
 [
-    {
-        "name": "Charlie (Example)",
-        "description": "Public keys for Charlie",
-        "signing": {
-          "publicKey": {
-            "kty": "OKP",
-            "crv": "Ed25519",
-            "x": "cHaRlIe_sIgNiNg_pUbLiC_kEy_dAtA_hErE_123"
-          }
-        },
-        "encryption": {
-          "publicKey": {
-            "kty": "EC",
-            "crv": "P-256",
-            "x": "cHaRlIe_eNcRyPtIoN_x_pOiNt_dAtA_hErE_456",
-            "y": "cHaRlIe_eNcRyPtIoN_y_pOiNt_dAtA_hErE_789"
-          }
-        }
+  {
+    "name": "Charlie",
+    "description": "SteganoGuard Public Keys for Charlie",
+    "signing": {
+      "publicKey": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "FgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRs"
+      }
     },
-    {
-        "name": "Diana (Example)",
-        "description": "Public keys for Diana",
-        "signing": {
-          "publicKey": {
-            "kty": "OKP",
-            "crv": "Ed25519",
-            "x": "dIAnA_sIgNiNg_KeY_dAtA_gOeS_hErE_aBcDeF"
-          }
-        },
-        "encryption": {
-          "publicKey": {
-            "kty": "EC",
-            "crv": "P-256",
-            "x": "dIAnA_eNcRyPtIoN_x_VaLuE_gOeS_hErE_gHiJk",
-            "y": "dIAnA_eNcRyPtIoN_y_VaLuE_gOeS_hErE_lMnOp"
-          }
-        }
+    "encryption": {
+      "publicKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "ZaBcDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLm",
+        "y": "NoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRsTuVwXyZa"
+      }
     }
+  },
+  {
+    "name": "Dana",
+    "description": "SteganoGuard Public Keys for Dana",
+    "signing": {
+      "publicKey": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "kLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRsTuVwX"
+      }
+    },
+    "encryption": {
+      "publicKey": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "qRsTuVwXyZaBcDeFgHiJkLmNoPqRsTuVwXyZaBcD",
+        "y": "eFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqR"
+      }
+    }
+  }
 ]

@@ -1,49 +1,50 @@
+
 {
   "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
-  "name": "Alice (Example)",
-  "description": "SteganoGuard Identity Key Pair",
+  "name": "Alice (Example Identity)",
+  "description": "An example SteganoGuard identity backup for Alice.",
   "signing": {
     "publicKey": {
       "kty": "OKP",
       "crv": "Ed25519",
-      "x": "T0fLgT2c3a-g8L_Y_U8zR_W6nZ_y9bV_x8G_H7k4N3c"
+      "x": "T3_Z-yL2e-j4E6K4f8c_9B_A1bC2dE3fG4hI5jK6lM7"
     },
     "privateKey": {
       "kty": "OKP",
       "crv": "Ed25519",
-      "x": "T0fLgT2c3a-g8L_Y_U8zR_W6nZ_y9bV_x8G_H7k4N3c",
-      "d": "bXl-c3VwZXItc2VjcmV0LXNpZ25pbmcta2V5LWdvaW5nLWhlcmU"
+      "x": "T3_Z-yL2e-j4E6K4f8c_9B_A1bC2dE3fG4hI5jK6lM7",
+      "d": "pIqR-sTuvWxYzAbCdEfGhIjKlMnOpQrStUvWxYzAbCd"
     }
   },
   "encryption": {
     "publicKey": {
       "kty": "EC",
       "crv": "P-256",
-      "x": "Ua5b_j2w-F6L_c3d_E9o_Z5f_X6k_Y4m_U7r_V9p_A8",
-      "y": "e_Xy8_Z_aBcDeFgHiJkLmNoPqRsTuVwXyZ_1_2_3"
+      "x": "lM8N5g-a7b_C9dE1fG3hI5jK6lM7pQrStUvWxYzAbCd",
+      "y": "8fG4hI5jK6lM7pQrStUvWxYzAbCdlM8N5g-a7b_C9dE"
     },
     "privateKey": {
       "kty": "EC",
       "crv": "P-256",
-      "x": "Ua5b_j2w-F6L_c3d_E9o_Z5f_X6k_Y4m_U7r_V9p_A8",
-      "y": "e_Xy8_Z_aBcDeFgHiJkLmNoPqRsTuVwXyZ_1_2_3",
-      "d": "c3VwZXItc2VjcmV0LWVjZGgtcHJpdmF0ZS1rZXk"
+      "x": "lM8N5g-a7b_C9dE1fG3hI5jK6lM7pQrStUvWxYzAbCd",
+      "y": "8fG4hI5jK6lM7pQrStUvWxYzAbCdlM8N5g-a7b_C9dE",
+      "d": "9B_A1bC2dE3fG4hI5jK6lM7pIqR-sTuvWxYzAbCdEfG"
     }
   },
   "contacts": [
     {
-      "id": "f6e5d4c3-b2a1-0987-6543-210987654321",
+      "id": "b1c2d3e4-f5g6-7890-1234-abcdef123456",
       "name": "Bob",
       "signingPublicKey": {
         "kty": "OKP",
         "crv": "Ed25519",
-        "x": "Lp_xR9a_bC7D_eF5G_hI9j_kL8m_N7oP_qR7s_T5uVw"
+        "x": "uVwXyZaBcDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgH"
       },
       "encryptionPublicKey": {
         "kty": "EC",
         "crv": "P-256",
-        "x": "e9f8_G7h_I5j_kL3m_N1o_Pq2r_S4t_U6v8w_X0y_Z_a",
-        "y": "a1b2_c3d_E4f_G5h_I6j_kL7m_N8o_P9q_R0s_T1u"
+        "x": "iJkLmNoPqRsTuVwXyZaBcDeFgHuVwXyZaBcDeFgH",
+        "y": "RsTuVwXyZaBcDeFgHiJkLmNoPqHiJkLmNoPqRsTu"
       }
     }
   ]
