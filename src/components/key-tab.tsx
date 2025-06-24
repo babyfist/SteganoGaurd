@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
-import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, importSigningKey, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
 import { cn } from '@/lib/utils';
 import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Pencil, Copy, ArrowUp, ArrowDown } from 'lucide-react';
 
@@ -58,6 +57,7 @@ export default function KeyTab() {
   const handleGenerateIdentity = async () => {
     setIsLoading(true);
     try {
+      const { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk } = await import('@/lib/crypto');
       const [signingKeyPair, encryptionKeyPair] = await Promise.all([
         generateSigningKeyPair(),
         generateEncryptionKeyPair(),
@@ -102,6 +102,7 @@ export default function KeyTab() {
     if (!file) return;
     setIsLoading(true);
     try {
+      const { importSigningKey, importEncryptionKey } = await import('@/lib/crypto');
       const fileContent = await file.text();
       const importedData = JSON.parse(fileContent);
       const identitiesToImport: IdentityKeyPair[] = Array.isArray(importedData) ? importedData : [importedData];
@@ -185,6 +186,7 @@ export default function KeyTab() {
     setIsLoading(true);
 
     try {
+      const { validatePublicKeys } = await import('@/lib/crypto');
       const fileContent = await pendingContactKeyFile.text();
       const importedData = JSON.parse(fileContent);
       const identityToUpdate = identities.find(i => i.id === addingContactTo);

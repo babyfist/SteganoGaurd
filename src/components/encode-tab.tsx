@@ -15,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
 import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarning, Users, ShieldCheck, FileDown, UserPlus, CheckCircle2, Eye, EyeOff } from 'lucide-react';
-import { encryptSymmetric, encryptHybrid, importSigningKey, signData, textToArrayBuffer, getPublicKeyHash, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 
@@ -100,6 +99,7 @@ export default function EncodeTab() {
     const timer = setTimeout(() => {
         const parseAndValidate = async () => {
             try {
+                const { validatePublicKeys } = await import('@/lib/crypto');
                 const keyData = JSON.parse(newRecipientKeyInput);
                 const publicKeys = await validatePublicKeys(keyData);
                 setValidatedNewRecipient({
@@ -205,8 +205,9 @@ export default function EncodeTab() {
     setResult(null);
 
     try {
-        // Dynamically import steganography functions to avoid server-side execution.
+        // Dynamically import libraries to avoid server-side execution.
         const { embedDataInPng, embedDataInGenericFile } = await import('@/lib/steganography');
+        const { getPublicKeyHash, encryptSymmetric, encryptHybrid, importEncryptionKey, textToArrayBuffer, importSigningKey, signData } = await import('@/lib/crypto');
         
         // Prepare watermark options if enabled.
         let stampOptions: any = null;

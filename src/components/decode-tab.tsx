@@ -7,7 +7,6 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { decryptSymmetric, decryptHybrid, importSigningKey, importEncryptionKey, verifySignature, arrayBufferToText, getPublicKeyHash } from '@/lib/crypto';
 import { IdentityKeyPair } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Upload, KeyRound, Lock, ShieldCheck, FileWarning, Loader2, Info } from 'lucide-react';
@@ -77,8 +76,9 @@ export default function DecodeTab() {
       setPassword('');
 
       try {
-        // Dynamically import steganography functions to avoid server-side execution.
+        // Dynamically import libraries to avoid server-side execution.
         const { extractDataFromPng, extractDataFromGenericFile } = await import('@/lib/steganography');
+        const { arrayBufferToText, importSigningKey, verifySignature } = await import('@/lib/crypto');
         
         // Extract the hidden ArrayBuffer from the file.
         let extractedBuffer: ArrayBuffer;
@@ -163,6 +163,7 @@ export default function DecodeTab() {
     setDecryptedDecoy('');
 
     try {
+      const { decryptSymmetric } = await import('@/lib/crypto');
       const decrypted = await decryptSymmetric(decodedData.decoy, password);
       setDecryptedDecoy(decrypted);
       toast({ title: "Decoy Decrypted", description: "The decoy message has been revealed." });
@@ -205,6 +206,7 @@ export default function DecodeTab() {
     setDecryptionResults([]);
 
     try {
+        const { getPublicKeyHash, importEncryptionKey, decryptHybrid } = await import('@/lib/crypto');
         let foundAnyMessage = false;
         let localDecryptionError = '';
         const successfulDecryptions: DecryptionResult[] = [];

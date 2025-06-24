@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * @fileoverview This file contains all cryptographic functions for the SteganoGuard application.
  * It handles key generation, import/export, hashing, digital signatures, and both symmetric and asymmetric encryption.
