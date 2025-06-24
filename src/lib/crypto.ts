@@ -248,16 +248,26 @@ export function textToArrayBuffer(text: string): ArrayBuffer {
   return new TextEncoder().encode(text);
 }
 
-/** Converts an ArrayBuffer to a Base64 string using Buffer. */
+/** Converts an ArrayBuffer to a Base64 string using a browser-safe method. */
 function bufferToBase64(buffer: ArrayBuffer): string {
-  return Buffer.from(buffer).toString('base64');
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
 }
 
-/** Converts a Base64 string to an ArrayBuffer using Buffer. */
+/** Converts a Base64 string to an ArrayBuffer using a browser-safe method. */
 function base64ToBuffer(base64: string): ArrayBuffer {
-  const buf = Buffer.from(base64, 'base64');
-  // Return a copy of the underlying ArrayBuffer to prevent memory sharing issues
-  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    const binary_string = window.atob(base64);
+    const len = binary_string.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binary_string.charCodeAt(i);
+    }
+    return bytes.buffer;
 }
 
 
