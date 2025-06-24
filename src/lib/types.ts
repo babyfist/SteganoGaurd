@@ -9,8 +9,8 @@
  * Contains both the public and private key components.
  */
 export type SigningKeyPairJwk = {
-  publicKey: JsonWebKey;
-  privateKey: JsonWebKey;
+  publicKey: Record<string, any>;
+  privateKey: Record<string, any>;
 };
 
 /**
@@ -18,8 +18,8 @@ export type SigningKeyPairJwk = {
  * Contains both the public and private key components.
  */
 export type EncryptionKeyPairJwk = {
-  publicKey: JsonWebKey;
-  privateKey: JsonWebKey;
+  publicKey: Record<string, any>;
+  privateKey: Record<string, any>;
 };
 
 /**
@@ -45,8 +45,8 @@ export type Contact = {
   id: string;
   name: string;
   // We only store the public part of the contact's keys
-  signingPublicKey: JsonWebKey;
-  encryptionPublicKey: JsonWebKey;
+  signingPublicKey: Record<string, any>;
+  encryptionPublicKey: Record<string, any>;
 };
 
 /**
@@ -55,7 +55,7 @@ export type Contact = {
  */
 export type SteganoPayload = {
     /** The sender's public signing key, included if the message is signed. */
-    senderPublicKey?: JsonWebKey;
+    senderPublicKey?: Record<string, any>;
     /** The publicly decryptable "decoy" message. */
     decoy: { iv: string; ciphertext: string; };
     /** An array of encrypted messages, one for each recipient. */
@@ -63,7 +63,7 @@ export type SteganoPayload = {
         /** A hash of the recipient's public key to identify the intended recipient. */
         recipientPublicKeyHash: string; 
         /** The ephemeral public key used for this specific encryption, enabling Perfect Forward Secrecy. */
-        ephemeralPublicKey: JsonWebKey; 
+        ephemeralPublicKey: Record<string, any>; 
         /** The initialization vector used for AES-GCM encryption. */
         iv: string; 
         /** The encrypted secret message ciphertext. */
