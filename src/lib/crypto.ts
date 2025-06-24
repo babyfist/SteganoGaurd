@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * @fileoverview This file contains all cryptographic functions for the SteganoGuard application.
  * It handles key generation, import/export, hashing, digital signatures, and both symmetric and asymmetric encryption.
@@ -33,7 +35,7 @@ const PBKDF2_PARAMS = {
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to a CryptoKeyPair containing a publicKey and privateKey.
  */
 export async function generateSigningKeyPair() {
-  return await crypto.subtle.generateKey(SIGN_ALGO, true, ['sign', 'verify']);
+  return await window.crypto.subtle.generateKey(SIGN_ALGO, true, ['sign', 'verify']);
 }
 
 /**
@@ -41,7 +43,7 @@ export async function generateSigningKeyPair() {
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to a CryptoKeyPair.
  */
 export async function generateEncryptionKeyPair() {
-  return await crypto.subtle.generateKey(ENCRYPT_ALGO, true, ['deriveKey']);
+  return await window.crypto.subtle.generateKey(ENCRYPT_ALGO, true, ['deriveKey']);
 }
 
 
@@ -54,7 +56,7 @@ export async function generateEncryptionKeyPair() {
  * @returns {Promise<CryptoKey>} A promise that resolves to an importable CryptoKey.
  */
 export async function importSigningKey(keyData: JsonWebKey, usage: 'sign' | 'verify' = 'verify') {
-  return await crypto.subtle.importKey('jwk', keyData, SIGN_ALGO, true, [usage]);
+  return await window.crypto.subtle.importKey('jwk', keyData, SIGN_ALGO, true, [usage]);
 }
 
 /**
@@ -64,7 +66,7 @@ export async function importSigningKey(keyData: JsonWebKey, usage: 'sign' | 'ver
  * @returns {Promise<CryptoKey>} A promise that resolves to an importable CryptoKey.
  */
 export async function importEncryptionKey(keyData: JsonWebKey, usages: KeyUsage[] = ['deriveKey']) {
-    return await crypto.subtle.importKey('jwk', keyData, ENCRYPT_ALGO, true, usages);
+    return await window.crypto.subtle.importKey('jwk', keyData, ENCRYPT_ALGO, true, usages);
 }
 
 /**
@@ -73,7 +75,7 @@ export async function importEncryptionKey(keyData: JsonWebKey, usages: KeyUsage[
  * @returns {Promise<JsonWebKey>} A promise that resolves to the JWK object.
  */
 export async function exportKeyJwk(key: CryptoKey) {
-  return await crypto.subtle.exportKey('jwk', key);
+  return await window.crypto.subtle.exportKey('jwk', key);
 }
 
 
@@ -101,7 +103,7 @@ export async function getPublicKeyHash(publicKeyJwk: JsonWebKey): Promise<string
     }
     
     const keyBuffer = textToArrayBuffer(keyString);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', keyBuffer);
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', keyBuffer);
     return bufferToHex(hashBuffer);
 }
 
@@ -115,7 +117,7 @@ export async function getPublicKeyHash(publicKeyJwk: JsonWebKey): Promise<string
  * @returns {Promise<ArrayBuffer>} A promise that resolves to the signature as an ArrayBuffer.
  */
 export async function signData(privateSigningKey: CryptoKey, data: ArrayBuffer): Promise<ArrayBuffer> {
-  return await crypto.subtle.sign(SIGN_ALGO, privateSigningKey, data);
+  return await window.crypto.subtle.sign(SIGN_ALGO, privateSigningKey, data);
 }
 
 /**
@@ -126,7 +128,7 @@ export async function signData(privateSigningKey: CryptoKey, data: ArrayBuffer):
  * @returns {Promise<boolean>} A promise that resolves to true if the signature is valid, false otherwise.
  */
 export async function verifySignature(publicSigningKey: CryptoKey, signature: ArrayBuffer, data: ArrayBuffer): Promise<boolean> {
-  return await crypto.subtle.verify(SIGN_ALGO, publicSigningKey, signature, data);
+  return await window.crypto.subtle.verify(SIGN_ALGO, publicSigningKey, signature, data);
 }
 
 
@@ -139,8 +141,8 @@ export async function verifySignature(publicSigningKey: CryptoKey, signature: Ar
  */
 async function deriveKeyFromPassword(password: string): Promise<CryptoKey> {
   const passwordBuffer = textToArrayBuffer(password);
-  const masterKey = await crypto.subtle.importKey('raw', passwordBuffer, { name: 'PBKDF2' }, false, ['deriveKey']);
-  return await crypto.subtle.deriveKey(PBKDF2_PARAMS, masterKey, AES_ALGO, true, ['encrypt', 'decrypt']);
+  const masterKey = await window.crypto.subtle.importKey('raw', passwordBuffer, { name: 'PBKDF2' }, false, ['deriveKey']);
+  return await window.crypto.subtle.deriveKey(PBKDF2_PARAMS, masterKey, AES_ALGO, true, ['encrypt', 'decrypt']);
 }
 
 /**
@@ -151,9 +153,9 @@ async function deriveKeyFromPassword(password: string): Promise<CryptoKey> {
  */
 export async function encryptSymmetric(plaintext: string, password: string): Promise<{ iv: string, ciphertext: string }> {
   const key = await deriveKeyFromPassword(password);
-  const iv = crypto.getRandomValues(new Uint8Array(12)); // 12 bytes is recommended for AES-GCM.
+  const iv = window.crypto.getRandomValues(new Uint8Array(12)); // 12 bytes is recommended for AES-GCM.
   const plaintextBuffer = textToArrayBuffer(plaintext);
-  const ciphertextBuffer = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintextBuffer);
+  const ciphertextBuffer = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintextBuffer);
 
   return {
     iv: bufferToBase64(iv),
@@ -172,7 +174,7 @@ export async function decryptSymmetric(encrypted: { iv: string, ciphertext: stri
   const key = await deriveKeyFromPassword(password);
   const iv = base64ToBuffer(encrypted.iv);
   const ciphertext = base64ToBuffer(encrypted.ciphertext);
-  const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  const decryptedBuffer = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
   return arrayBufferToText(decryptedBuffer);
 }
 
@@ -188,7 +190,7 @@ export async function decryptSymmetric(encrypted: { iv: string, ciphertext: stri
  */
 export async function encryptHybrid(plaintext: string, recipientPublicKey: CryptoKey): Promise<{ ephemeralPublicKey: JsonWebKey, iv: string, ciphertext: string }> {
     const ephemeralKeyPair = await generateEncryptionKeyPair();
-    const sharedSecret = await crypto.subtle.deriveKey(
+    const sharedSecret = await window.crypto.subtle.deriveKey(
         { name: 'ECDH', public: recipientPublicKey },
         ephemeralKeyPair.privateKey!,
         AES_ALGO,
@@ -196,9 +198,9 @@ export async function encryptHybrid(plaintext: string, recipientPublicKey: Crypt
         ['encrypt']
     );
 
-    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const plaintextBuffer = textToArrayBuffer(plaintext);
-    const ciphertextBuffer = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sharedSecret, plaintextBuffer);
+    const ciphertextBuffer = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sharedSecret, plaintextBuffer);
     
     const ephemeralPublicKeyJwk = await exportKeyJwk(ephemeralKeyPair.publicKey!);
 
@@ -217,7 +219,7 @@ export async function encryptHybrid(plaintext: string, recipientPublicKey: Crypt
  */
 export async function decryptHybrid(encrypted: { ephemeralPublicKey: JsonWebKey, iv: string, ciphertext: string }, myPrivateKey: CryptoKey): Promise<string> {
     const ephemeralPublicKey = await importEncryptionKey(encrypted.ephemeralPublicKey, []);
-    const sharedSecret = await crypto.subtle.deriveKey(
+    const sharedSecret = await window.crypto.subtle.deriveKey(
         { name: 'ECDH', public: ephemeralPublicKey },
         myPrivateKey,
         AES_ALGO,
@@ -228,7 +230,7 @@ export async function decryptHybrid(encrypted: { ephemeralPublicKey: JsonWebKey,
     const iv = base64ToBuffer(encrypted.iv);
     const ciphertext = base64ToBuffer(encrypted.ciphertext);
 
-    const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, sharedSecret, ciphertext);
+    const decryptedBuffer = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, sharedSecret, ciphertext);
     return arrayBufferToText(decryptedBuffer);
 }
 
@@ -290,3 +292,5 @@ export async function validatePublicKeys(keyData: any): Promise<{ signingPublicK
         encryptionPublicKey: keyData.encryption.publicKey,
     };
 }
+
+    
