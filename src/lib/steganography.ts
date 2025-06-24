@@ -1,3 +1,4 @@
+'use client';
 
 /**
  * @fileoverview This file contains all steganography functions for the application.

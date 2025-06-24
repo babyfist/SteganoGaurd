@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Triggers a browser download for a given JSON object.
  * This file contains browser-specific APIs and should only be imported dynamically on the client.
