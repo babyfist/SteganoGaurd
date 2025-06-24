@@ -2,9 +2,12 @@
   "manifest_version": 3,
   "name": "SteganoGuard",
   "version": "1.0.0",
-  "description": "A steganography and cryptography tool to hide and sign secret messages within images and files.",
+  "description": "A steganography and cryptography tool to hide and sign secret messages within files.",
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
-    "default_popup": "index.html",
+    "default_title": "Open SteganoGuard",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",
