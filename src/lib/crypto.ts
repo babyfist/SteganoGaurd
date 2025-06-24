@@ -1,3 +1,4 @@
+
 'use client';
 
 /**
@@ -18,11 +19,8 @@
 const SIGN_ALGO = { name: 'Ed25519' };
 const ENCRYPT_ALGO = { name: 'ECDH', namedCurve: 'P-256' };
 const AES_ALGO = { name: 'AES-GCM', length: 256 };
-const PBKDF2_PARAMS = {
+const PBKDF2_PARAMS_BASE = {
   name: 'PBKDF2',
-  // In a real-world app, this salt should be unique per password and stored alongside the hash.
-  // For simplicity in this tool, a static salt is used.
-  salt: new Uint8Array(16), 
   iterations: 100000,
   hash: 'SHA-256',
 };
@@ -142,7 +140,10 @@ export async function verifySignature(publicSigningKey: CryptoKey, signature: Ar
 async function deriveKeyFromPassword(password: string): Promise<CryptoKey> {
   const passwordBuffer = textToArrayBuffer(password);
   const masterKey = await window.crypto.subtle.importKey('raw', passwordBuffer, { name: 'PBKDF2' }, false, ['deriveKey']);
-  return await window.crypto.subtle.deriveKey(PBKDF2_PARAMS, masterKey, AES_ALGO, true, ['encrypt', 'decrypt']);
+  // For simplicity in this tool, a static salt is used.
+  const salt = new Uint8Array(16); // Create a static salt.
+  const pbkdf2Params = { ...PBKDF2_PARAMS_BASE, salt };
+  return await window.crypto.subtle.deriveKey(pbkdf2Params, masterKey, AES_ALGO, true, ['encrypt', 'decrypt']);
 }
 
 /**
