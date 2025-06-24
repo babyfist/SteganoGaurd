@@ -3,8 +3,6 @@ import type {NextConfig} from 'next';
 const nextConfig: NextConfig = {
   // Enable static export for web extension packaging
   output: 'export',
-  trailingSlash: true,
-  assetPrefix: './',
 
   /* config options here */
   typescript: {
