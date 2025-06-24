@@ -32,16 +32,16 @@ const PBKDF2_PARAMS_BASE = {
  * Generates a new Ed25519 key pair for digital signatures.
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to a CryptoKeyPair containing a publicKey and privateKey.
  */
-export async function generateSigningKeyPair() {
-  return await window.crypto.subtle.generateKey(SIGN_ALGO, true, ['sign', 'verify']);
+export async function generateSigningKeyPair(): Promise<CryptoKeyPair> {
+  return await window.crypto.subtle.generateKey(SIGN_ALGO, true, ['sign', 'verify']) as CryptoKeyPair;
 }
 
 /**
  * Generates a new ECDH P-256 key pair for encryption key agreement.
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to a CryptoKeyPair.
  */
-export async function generateEncryptionKeyPair() {
-  return await window.crypto.subtle.generateKey(ENCRYPT_ALGO, true, ['deriveKey']);
+export async function generateEncryptionKeyPair(): Promise<CryptoKeyPair> {
+  return await window.crypto.subtle.generateKey(ENCRYPT_ALGO, true, ['deriveKey']) as CryptoKeyPair;
 }
 
 
@@ -193,7 +193,7 @@ export async function encryptHybrid(plaintext: string, recipientPublicKey: Crypt
     const ephemeralKeyPair = await generateEncryptionKeyPair();
     const sharedSecret = await window.crypto.subtle.deriveKey(
         { name: 'ECDH', public: recipientPublicKey },
-        ephemeralKeyPair.privateKey!,
+        ephemeralKeyPair.privateKey,
         AES_ALGO,
         true,
         ['encrypt']
@@ -203,7 +203,7 @@ export async function encryptHybrid(plaintext: string, recipientPublicKey: Crypt
     const plaintextBuffer = textToArrayBuffer(plaintext);
     const ciphertextBuffer = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sharedSecret, plaintextBuffer);
     
-    const ephemeralPublicKeyJwk = await exportKeyJwk(ephemeralKeyPair.publicKey!);
+    const ephemeralPublicKeyJwk = await exportKeyJwk(ephemeralKeyPair.publicKey);
 
     return {
         ephemeralPublicKey: ephemeralPublicKeyJwk,
