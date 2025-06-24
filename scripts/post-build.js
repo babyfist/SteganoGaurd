@@ -7,7 +7,8 @@ const outDir = path.join(__dirname, '..', 'out');
 const oldNextDir = path.join(outDir, '_next');
 const newNextDir = path.join(outDir, 'next-assets');
 
-// 1. Rename the _next directory to next-assets
+// 1. Rename the _next directory to next-assets. This is often done to avoid
+// issues with ad blockers that might target the default "_next" folder name.
 if (fs.existsSync(oldNextDir)) {
   try {
     fs.renameSync(oldNextDir, newNextDir);
@@ -20,15 +21,16 @@ if (fs.existsSync(oldNextDir)) {
     console.log('out/_next directory does not exist, skipping rename.');
 }
 
-// 2. Define options for replace-in-file
+// 2. Define options for replace-in-file to fix asset paths.
+// We need to replace all absolute "/_next" paths with relative "./next-assets" paths.
 const options = {
   files: [
     path.join(outDir, '**/*.html'),
     path.join(outDir, '**/*.css'),
     path.join(newNextDir, '**/*.js'),
   ],
-  from: /\/_next\//g,
-  to: 'next-assets/',
+  from: /\/_next/g,
+  to: './next-assets', // Use "./" to ensure the path is always relative.
   allowEmptyPaths: true,
 };
 
@@ -45,7 +47,8 @@ try {
   } else {
     console.log('`out` directory not found, skipping path replacement.');
   }
-} catch (error) {
+} catch (error)
+{
   console.error('Error occurred during file replacement:', error);
   process.exit(1);
 }
