@@ -1,4 +1,4 @@
-import animatePlugin from 'tailwindcss-animate';
+const animatePlugin = require('tailwindcss-animate');
 
 /** @type {import('tailwindcss').Config} */
 const config = {
@@ -81,4 +81,4 @@ const config = {
   plugins: [animatePlugin],
 };
 
-export default config;
+module.exports = config;
