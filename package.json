@@ -5,8 +5,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
-    "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build && node -e \"require('fs').renameSync('out/_next', 'out/next-assets')\" && replace-in-file --from=_next/ --to=next-assets/ out/**/*.html out/**/*.css out/next-assets/**/*.js",
     "start": "next start",
     "lint": "next lint",
@@ -14,8 +12,6 @@
     "test": "jest"
   },
   "dependencies": {
-    "@genkit-ai/googleai": "1.7.0",
-    "@genkit-ai/next": "1.7.0",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-checkbox": "^1.1.4",
@@ -30,18 +26,16 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
-    "genkit": "1.7.0",
     "lucide-react": "^0.481.0",
-    "next": "^15.3.3",
+    "next": "^14.2.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",
-    "uuid": "^9.0.1",
-    "zod": "^3.24.2"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@peculiar/webcrypto": "^1.7.8",
+    "@peculiar/webcrypto": "1.7.9",
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^15.0.0",
     "@types/jest": "^29.5.12",
@@ -49,7 +43,6 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@types/uuid": "^9.0.8",
-    "genkit-cli": "1.7.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8",
