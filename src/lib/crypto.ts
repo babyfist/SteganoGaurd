@@ -49,30 +49,30 @@ export async function generateEncryptionKeyPair() {
 
 /**
  * Imports a signing key from JWK format.
- * @param {JsonWebKey} keyData - The key in JSON Web Key format.
+ * @param {Record<string, any>} keyData - The key in JSON Web Key format.
  * @param {'sign' | 'verify'} [usage='verify'] - The intended use of the key.
  * @returns {Promise<CryptoKey>} A promise that resolves to an importable CryptoKey.
  */
-export async function importSigningKey(keyData: JsonWebKey, usage: 'sign' | 'verify' = 'verify') {
+export async function importSigningKey(keyData: Record<string, any>, usage: 'sign' | 'verify' = 'verify') {
   return await window.crypto.subtle.importKey('jwk', keyData, SIGN_ALGO, true, [usage]);
 }
 
 /**
  * Imports an encryption key from JWK format.
- * @param {JsonWebKey} keyData - The key in JSON Web Key format.
+ * @param {Record<string, any>} keyData - The key in JSON Web Key format.
  * @param {KeyUsage[]} [usages=['deriveKey']] - The intended uses of the key.
  * @returns {Promise<CryptoKey>} A promise that resolves to an importable CryptoKey.
  */
-export async function importEncryptionKey(keyData: JsonWebKey, usages: KeyUsage[] = ['deriveKey']) {
+export async function importEncryptionKey(keyData: Record<string, any>, usages: KeyUsage[] = ['deriveKey']) {
     return await window.crypto.subtle.importKey('jwk', keyData, ENCRYPT_ALGO, true, usages);
 }
 
 /**
  * Exports a CryptoKey to its JSON Web Key (JWK) representation.
  * @param {CryptoKey} key - The CryptoKey to export.
- * @returns {Promise<JsonWebKey>} A promise that resolves to the JWK object.
+ * @returns {Promise<Record<string, any>>} A promise that resolves to the JWK object.
  */
-export async function exportKeyJwk(key: CryptoKey) {
+export async function exportKeyJwk(key: CryptoKey): Promise<Record<string, any>> {
   return await window.crypto.subtle.exportKey('jwk', key);
 }
 
@@ -83,11 +83,11 @@ export async function exportKeyJwk(key: CryptoKey) {
  * Creates a SHA-256 hash of a public key's essential components.
  * This provides a consistent, unique identifier for a given public key.
  * It handles both EC (encryption) and OKP (signing) key types.
- * @param {JsonWebKey} publicKeyJwk - The public key to hash.
+ * @param {Record<string, any>} publicKeyJwk - The public key to hash.
  * @returns {Promise<string>} A promise that resolves to the hex-encoded hash string.
  * @throws {Error} if the key is not a supported format or is missing required properties.
  */
-export async function getPublicKeyHash(publicKeyJwk: JsonWebKey): Promise<string> {
+export async function getPublicKeyHash(publicKeyJwk: Record<string, any>): Promise<string> {
     let keyString: string;
 
     if (publicKeyJwk.kty === 'EC' && publicKeyJwk.crv && publicKeyJwk.x && publicKeyJwk.y) {
@@ -187,9 +187,9 @@ export async function decryptSymmetric(encrypted: { iv: string, ciphertext: stri
  * This is a hybrid method: ECDH is used to create a shared secret, which then encrypts the data with AES-GCM.
  * @param {string} plaintext - The secret message to encrypt.
  * @param {CryptoKey} recipientPublicKey - The recipient's public ECDH key.
- * @returns {Promise<{ ephemeralPublicKey: JsonWebKey, iv: string, ciphertext: string }>} A promise that resolves to the encrypted payload.
+ * @returns {Promise<{ ephemeralPublicKey: Record<string, any>, iv: string, ciphertext: string }>} A promise that resolves to the encrypted payload.
  */
-export async function encryptHybrid(plaintext: string, recipientPublicKey: CryptoKey): Promise<{ ephemeralPublicKey: JsonWebKey, iv: string, ciphertext: string }> {
+export async function encryptHybrid(plaintext: string, recipientPublicKey: CryptoKey): Promise<{ ephemeralPublicKey: Record<string, any>, iv: string, ciphertext: string }> {
     const ephemeralKeyPair = await generateEncryptionKeyPair();
     const sharedSecret = await window.crypto.subtle.deriveKey(
         { name: 'ECDH', public: recipientPublicKey },
@@ -214,11 +214,11 @@ export async function encryptHybrid(plaintext: string, recipientPublicKey: Crypt
 
 /**
  * Decrypts a hybrid-encrypted message using the recipient's private key.
- * @param {{ ephemeralPublicKey: JsonWebKey, iv: string, ciphertext: string }} encrypted - The encrypted payload.
+ * @param {{ ephemeralPublicKey: Record<string, any>, iv: string, ciphertext: string }} encrypted - The encrypted payload.
  * @param {CryptoKey} myPrivateKey - The recipient's private ECDH key.
  * @returns {Promise<string>} A promise that resolves to the decrypted plaintext.
  */
-export async function decryptHybrid(encrypted: { ephemeralPublicKey: JsonWebKey, iv: string, ciphertext: string }, myPrivateKey: CryptoKey): Promise<string> {
+export async function decryptHybrid(encrypted: { ephemeralPublicKey: Record<string, any>, iv: string, ciphertext: string }, myPrivateKey: CryptoKey): Promise<string> {
     const ephemeralPublicKey = await importEncryptionKey(encrypted.ephemeralPublicKey, []);
     const sharedSecret = await window.crypto.subtle.deriveKey(
         { name: 'ECDH', public: ephemeralPublicKey },
@@ -248,26 +248,18 @@ export function textToArrayBuffer(text: string): ArrayBuffer {
   return new TextEncoder().encode(text);
 }
 
-/** Converts an ArrayBuffer to a Base64 string. */
+/** Converts an ArrayBuffer to a Base64 string using Buffer. */
 function bufferToBase64(buffer: ArrayBuffer): string {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+  return Buffer.from(buffer).toString('base64');
 }
 
-/** Converts a Base64 string to an ArrayBuffer. */
+/** Converts a Base64 string to an ArrayBuffer using Buffer. */
 function base64ToBuffer(base64: string): ArrayBuffer {
-  const binary_string = atob(base64);
-  const len = binary_string.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary_string.charCodeAt(i);
-  }
-  return bytes.buffer;
+  const buf = Buffer.from(base64, 'base64');
+  // Return a copy of the underlying ArrayBuffer to prevent memory sharing issues
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 }
+
 
 /** Converts an ArrayBuffer to a hexadecimal string. */
 function bufferToHex(buffer: ArrayBuffer): string {
@@ -277,10 +269,10 @@ function bufferToHex(buffer: ArrayBuffer): string {
 /**
  * Validates that a given object contains valid public signing and encryption keys.
  * @param {any} keyData - The object to validate, typically from a parsed JSON file.
- * @returns {Promise<{ signingPublicKey: JsonWebKey, encryptionPublicKey: JsonWebKey }>} An object with the validated public keys.
+ * @returns {Promise<{ signingPublicKey: Record<string, any>, encryptionPublicKey: Record<string, any> }>} An object with the validated public keys.
  * @throws {Error} if the keys are missing or fail to import.
  */
-export async function validatePublicKeys(keyData: any): Promise<{ signingPublicKey: JsonWebKey, encryptionPublicKey: JsonWebKey }> {
+export async function validatePublicKeys(keyData: any): Promise<{ signingPublicKey: Record<string, any>, encryptionPublicKey: Record<string, any> }> {
     if (!keyData.signing?.publicKey || !keyData.encryption?.publicKey) {
         throw new Error("Invalid key file. Must contain public signing and encryption keys.");
     }
@@ -293,5 +285,3 @@ export async function validatePublicKeys(keyData: any): Promise<{ signingPublicK
         encryptionPublicKey: keyData.encryption.publicKey,
     };
 }
-
-    
