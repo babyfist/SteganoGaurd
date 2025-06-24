@@ -16,7 +16,6 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
 import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarning, Users, ShieldCheck, FileDown, UserPlus, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { encryptSymmetric, encryptHybrid, importSigningKey, signData, textToArrayBuffer, getPublicKeyHash, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
-import { embedDataInPng, embedDataInGenericFile } from '@/lib/steganography';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 
@@ -206,6 +205,9 @@ export default function EncodeTab() {
     setResult(null);
 
     try {
+        // Dynamically import steganography functions to avoid server-side execution.
+        const { embedDataInPng, embedDataInGenericFile } = await import('@/lib/steganography');
+        
         // Prepare watermark options if enabled.
         let stampOptions: any = null;
         if (includeStamp && coverImage?.type.startsWith('image/')) {

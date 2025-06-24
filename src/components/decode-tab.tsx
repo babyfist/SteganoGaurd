@@ -7,7 +7,6 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { extractDataFromPng, extractDataFromGenericFile } from '@/lib/steganography';
 import { decryptSymmetric, decryptHybrid, importSigningKey, importEncryptionKey, verifySignature, arrayBufferToText, getPublicKeyHash } from '@/lib/crypto';
 import { IdentityKeyPair } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -78,6 +77,9 @@ export default function DecodeTab() {
       setPassword('');
 
       try {
+        // Dynamically import steganography functions to avoid server-side execution.
+        const { extractDataFromPng, extractDataFromGenericFile } = await import('@/lib/steganography');
+        
         // Extract the hidden ArrayBuffer from the file.
         let extractedBuffer: ArrayBuffer;
         if (stegoFile.type.startsWith('image/')) {

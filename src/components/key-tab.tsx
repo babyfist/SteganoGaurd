@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
 import { generateSigningKeyPair, generateEncryptionKeyPair, exportKeyJwk, importSigningKey, importEncryptionKey, validatePublicKeys } from '@/lib/crypto';
-import { downloadJson, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Pencil, Copy, ArrowUp, ArrowDown } from 'lucide-react';
 
 /**
@@ -276,9 +276,12 @@ export default function KeyTab() {
   };
 
   /** Exports a full identity (including private keys) to a backup JSON file. */
-  const exportIdentity = (id: string) => {
+  const exportIdentity = async (id: string) => {
       const identity = identities.find(i => i.id === id);
-      if (identity) downloadJson(identity, `steganoguard_identity-backup_${identity.name.replace(/\s/g, '_')}.json`);
+      if (identity) {
+        const { downloadJson } = await import('@/lib/browser-utils');
+        downloadJson(identity, `steganoguard_identity-backup_${identity.name.replace(/\s/g, '_')}.json`);
+      }
   };
   
   /** A helper function to create a standardized public key data object for sharing. */
@@ -300,10 +303,11 @@ export default function KeyTab() {
   };
 
   /** Downloads an identity's public key data as a JSON file. */
-  const handleDownloadIdentityPublicKey = (id: string) => {
+  const handleDownloadIdentityPublicKey = async (id: string) => {
       const identity = identities.find(i => i.id === id);
       if (identity) {
           const publicData = createPublicData(identity.name, identity.signing.publicKey, identity.encryption.publicKey);
+          const { downloadJson } = await import('@/lib/browser-utils');
           downloadJson(publicData, `steganoguard_public-keys_${identity.name.replace(/\s/g, '_')}.json`);
       }
   };
@@ -316,26 +320,29 @@ export default function KeyTab() {
   };
   
   /** Downloads a contact's public key data as a JSON file. */
-  const handleShareContactDownload = (contact: Contact) => {
+  const handleShareContactDownload = async (contact: Contact) => {
       const publicData = createPublicData(contact.name, contact.signingPublicKey, contact.encryptionPublicKey);
+      const { downloadJson } = await import('@/lib/browser-utils');
       downloadJson(publicData, `steganoguard_public-keys_${contact.name.replace(/\s/g, '_')}.json`);
   };
 
   /** Exports all contacts for a given identity to a single JSON file. */
-  const handleExportContacts = (identityId: string) => {
+  const handleExportContacts = async (identityId: string) => {
       const identity = identities.find(i => i.id === identityId);
       if (identity && identity.contacts && identity.contacts.length > 0) {
           const contactsToExport = identity.contacts.map(contact => 
             createPublicData(contact.name, contact.signingPublicKey, contact.encryptionPublicKey)
           );
+          const { downloadJson } = await import('@/lib/browser-utils');
           downloadJson(contactsToExport, `steganoguard_contacts_${identity.name.replace(/\s/g, '_')}.json`);
       }
   };
 
   /** Exports all identities to a single backup JSON file. */
-  const handleExportAllIdentities = () => {
+  const handleExportAllIdentities = async () => {
       if (identities.length > 0) {
           const date = new Date().toISOString().split('T')[0];
+          const { downloadJson } = await import('@/lib/browser-utils');
           downloadJson(identities, `steganoguard_all-identities-backup_${date}.json`);
       }
   };
