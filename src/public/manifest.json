@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "SteganoGuard",
+  "version": "1.0",
+  "description": "A steganography and cryptography tool to hide and sign secret messages within images, ensuring confidentiality and authenticity.",
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval' 'sha256-ptl7iRFIEmlGZTqx2z2Vs+fjZr0uLm1Glswo4jh3iDY=' 'sha256-fhDYw+bdh9HblAzHkQ4xWzDs12Je1Aa+EjEbLfRPD1g=' 'sha256-Q+8tPsjVtiDsjF/Cv8FMOpg2Yg910KFKDAJat1PPb2g=' 'sha256-sauyvOz7c6mElvJjaubWWCVsHbA2rU8OMDeKIO56mYU=' 'sha256-CneB+q9HT4+JHaiuBdBhk7xBR23vI8NlysN2e14Vrp0=' 'sha256-RJI1DnWBmqShX3s6iVk7X7F1YZGe85tvjtZSs50U370=' 'sha256-0ocbvSVmnOTlwj3LxQFNjVK1rDWBfztDTD63SqKdz3c='; object-src 'self';"
+  }
+}
