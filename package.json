@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node -e \"require('fs').renameSync('out/_next', 'out/next-assets')\" && replace-in-file --from=_next/ --to=next-assets/ out/**/*.html out/**/*.css out/next-assets/**/*.js",
+    "build": "next build && node scripts/post-build.js",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
