@@ -34,7 +34,7 @@
     "uuid": "9.0.1"
   },
   "devDependencies": {
-    "@peculiar/webcrypto": "1.7.4",
+    "@peculiar/webcrypto": "1.7.5",
     "@testing-library/jest-dom": "6.4.6",
     "@testing-library/react": "15.0.0",
     "@types/jest": "29.5.12",

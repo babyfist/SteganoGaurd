@@ -1,3 +1,4 @@
+'use client';
 
 /**
  * @fileoverview This file contains all cryptographic functions for the SteganoGuard application.
