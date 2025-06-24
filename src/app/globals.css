@@ -5,22 +5,30 @@
 
 @layer base {
   :root {
-    --background: 257 100% 97%;
+    --background: 257 100% 97%; /* Light Lavender */
     --foreground: 256 65% 10%;
+
     --card: 257 100% 100%;
     --card-foreground: 256 65% 10%;
+
     --popover: 257 100% 100%;
     --popover-foreground: 256 65% 10%;
-    --primary: 256 65% 60%;
+
+    --primary: 256 65% 60%; /* Deep Violet */
     --primary-foreground: 0 0% 98%;
+
     --secondary: 257 50% 92%;
     --secondary-foreground: 256 65% 20%;
+
     --muted: 257 50% 92%;
     --muted-foreground: 256 25% 50%;
-    --accent: 237 38% 70%;
-    --accent-foreground: 0 0% 100%;
+
+    --accent: 237 38% 70%; /* Soft Periwinkle */
+    --accent-foreground: 0 0% 98%;
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+
     --border: 257 30% 85%;
     --input: 257 40% 90%;
     --ring: 256 65% 60%;
@@ -29,29 +37,33 @@
   .dark {
     --background: 256 15% 10%;
     --foreground: 257 100% 97%;
+
     --card: 256 15% 12%;
     --card-foreground: 257 100% 97%;
+
     --popover: 256 15% 10%;
     --popover-foreground: 257 100% 97%;
+
     --primary: 256 65% 70%;
     --primary-foreground: 0 0% 98%;
+
     --secondary: 256 15% 20%;
     --secondary-foreground: 0 0% 98%;
+
     --muted: 256 15% 20%;
     --muted-foreground: 256 15% 65%;
+
     --accent: 237 38% 60%;
     --accent-foreground: 0 0% 98%;
+
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+
     --border: 256 15% 25%;
     --input: 256 15% 25%;
     --ring: 256 65% 70%;
   }
   
-  * {
-    @apply border-border;
-  }
-
   body {
     @apply bg-background text-foreground;
   }
