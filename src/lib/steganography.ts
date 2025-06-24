@@ -142,11 +142,19 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
             
             // First, extract the 32 bits for the length
             const lengthBits: number[] = [];
-            for(let i=0; i < 32 * 4; i++) { // 32 bits, checking up to 4 pixel components (RGBA)
-                if(lengthBits.length >= 32) break;
-                if(i % 4 !== 3) { // Skip alpha channel
+            let lastIndexForLength = 0;
+            for (let i = 0; i < pixels.length; i++) {
+                if (i % 4 !== 3) { // Skip alpha channel
                     lengthBits.push(pixels[i] & 1);
                 }
+                if (lengthBits.length >= 32) {
+                    lastIndexForLength = i + 1; // The next bit will be at this index
+                    break;
+                }
+            }
+
+            if (lengthBits.length < 32) {
+                return reject(new Error('Image is too small to contain data length.'));
             }
 
             let dataLength = 0;
@@ -161,8 +169,8 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
             const totalBitsToExtract = dataLength * 8;
             const bits: number[] = [];
             
-            // Start extracting from where the length data ended (pixel index 32)
-            for (let i = 32 * 4; i < pixels.length; i++) {
+            // Start extracting from where the length data ended
+            for (let i = lastIndexForLength; i < pixels.length; i++) {
                 if (bits.length >= totalBitsToExtract) break;
 
                 if (i % 4 !== 3) { // Skip alpha channel
