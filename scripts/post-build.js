@@ -29,7 +29,7 @@ const options = {
     path.join(newNextDir, '**/*.js'),
   ],
   from: /\/_next/g,
-  to: './next-assets',
+  to: 'next-assets', // Changed to be relative without the dot, as it will be prepended by the slash.
   allowEmptyPaths: true,
 };
 
@@ -40,10 +40,27 @@ const options = {
             // Dynamically import the ESM package
             const { replaceInFileSync } = await import('replace-in-file');
             
-            const results = replaceInFileSync(options);
-            const changedFiles = results.filter(r => r.hasChanged).map(r => path.relative(outDir, r.file));
-            if (changedFiles.length > 0) {
-                console.log('Replaced asset paths in:', changedFiles);
+            // First pass: replace absolute paths like src="/_next..."
+            const results1 = replaceInFileSync({
+              ...options,
+              from: /"\/_next/g,
+              to: '"./next-assets',
+            });
+            
+            // Second pass: replace relative paths within JS files, like url(_next/...)
+            const results2 = replaceInFileSync({
+              ...options,
+              files: path.join(newNextDir, '**/*.js'),
+              from: /_next\//g,
+              to: 'next-assets/',
+            });
+            
+            const changedFiles1 = results1.filter(r => r.hasChanged).map(r => path.relative(outDir, r.file));
+            const changedFiles2 = results2.filter(r => r.hasChanged).map(r => path.relative(outDir, r.file));
+            const allChangedFiles = [...new Set([...changedFiles1, ...changedFiles2])];
+
+            if (allChangedFiles.length > 0) {
+                console.log('Replaced asset paths in:', allChangedFiles);
             } else {
                 console.log('No asset paths needed replacement.');
             }
