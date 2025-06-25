@@ -57,7 +57,7 @@ export type SteganoPayload = {
     /** The sender's public signing key, included if the message is signed. */
     senderPublicKey?: Record<string, any>;
     /** The publicly decryptable "decoy" message. */
-    decoy: { iv: string; ciphertext: string; };
+    decoy: { salt: string; iv: string; ciphertext: string; };
     /** An array of encrypted messages, one for each recipient. */
     messages: { 
         /** A hash of the recipient's public key to identify the intended recipient. */

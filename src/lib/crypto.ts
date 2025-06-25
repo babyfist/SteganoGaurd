@@ -11,7 +11,7 @@
  * - Asymmetric Encryption (Hybrid): ECDH (Elliptic-Curve Diffie-Hellman) for key agreement, which then derives a shared
  *   AES-GCM key to encrypt the actual message. This provides Perfect Forward Secrecy for each message.
  * - Symmetric Encryption: AES-GCM for password-based encryption of the "decoy" message. The key is derived from the
- *   user's password using PBKDF2.
+ *   user's password using PBKDF2 with a random salt for each encryption.
  */
 
 // --- ALGORITHM DEFINITIONS ---
@@ -33,7 +33,7 @@ const PBKDF2_PARAMS_BASE = {
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to a CryptoKeyPair containing a publicKey and privateKey.
  */
 export async function generateSigningKeyPair(): Promise<CryptoKeyPair> {
-  return await window.crypto.subtle.generateKey(SIGN_ALGO, true, ['sign', 'verify']) as CryptoKeyPair;
+  return await window.crypto.subtle.generateKey(SIGN_ALGO, true, ['sign', 'verify']);
 }
 
 /**
@@ -41,7 +41,7 @@ export async function generateSigningKeyPair(): Promise<CryptoKeyPair> {
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to a CryptoKeyPair.
  */
 export async function generateEncryptionKeyPair(): Promise<CryptoKeyPair> {
-  return await window.crypto.subtle.generateKey(ENCRYPT_ALGO, true, ['deriveKey']) as CryptoKeyPair;
+  return await window.crypto.subtle.generateKey(ENCRYPT_ALGO, true, ['deriveKey']);
 }
 
 
@@ -53,7 +53,7 @@ export async function generateEncryptionKeyPair(): Promise<CryptoKeyPair> {
  * @param {'sign' | 'verify'} [usage='verify'] - The intended use of the key.
  * @returns {Promise<CryptoKey>} A promise that resolves to an importable CryptoKey.
  */
-export async function importSigningKey(keyData: Record<string, any>, usage: 'sign' | 'verify' = 'verify') {
+export async function importSigningKey(keyData: Record<string, any>, usage: 'sign' | 'verify' = 'verify'): Promise<CryptoKey> {
   return await window.crypto.subtle.importKey('jwk', keyData, SIGN_ALGO, true, [usage]);
 }
 
@@ -63,7 +63,7 @@ export async function importSigningKey(keyData: Record<string, any>, usage: 'sig
  * @param {KeyUsage[]} [usages=['deriveKey']] - The intended uses of the key.
  * @returns {Promise<CryptoKey>} A promise that resolves to an importable CryptoKey.
  */
-export async function importEncryptionKey(keyData: Record<string, any>, usages: KeyUsage[] = ['deriveKey']) {
+export async function importEncryptionKey(keyData: Record<string, any>, usages: KeyUsage[] = ['deriveKey']): Promise<CryptoKey> {
     return await window.crypto.subtle.importKey('jwk', keyData, ENCRYPT_ALGO, true, usages);
 }
 
@@ -133,46 +133,48 @@ export async function verifySignature(publicSigningKey: CryptoKey, signature: Ar
 // --- SYMMETRIC ENCRYPTION (Password-based) ---
 
 /**
- * Derives an AES-GCM encryption key from a user-provided password using PBKDF2.
+ * Derives an AES-GCM encryption key from a user-provided password and a salt using PBKDF2.
  * @param {string} password - The user's password.
+ * @param {Uint8Array} salt - A random salt.
  * @returns {Promise<CryptoKey>} A promise that resolves to the derived AES-256 key.
  */
-async function deriveKeyFromPassword(password: string): Promise<CryptoKey> {
+async function deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {
   const passwordBuffer = textToArrayBuffer(password);
   const masterKey = await window.crypto.subtle.importKey('raw', passwordBuffer, { name: 'PBKDF2' }, false, ['deriveKey']);
-  // For simplicity in this tool, a static salt is used.
-  const salt = new Uint8Array(16); // Create a static salt.
   const pbkdf2Params = { ...PBKDF2_PARAMS_BASE, salt };
   return await window.crypto.subtle.deriveKey(pbkdf2Params, masterKey, AES_ALGO, true, ['encrypt', 'decrypt']);
 }
 
 /**
- * Encrypts a plaintext string using a password.
+ * Encrypts a plaintext string using a password. Generates a random salt for each encryption.
  * @param {string} plaintext - The text to encrypt.
  * @param {string} password - The password to use for encryption.
- * @returns {Promise<{ iv: string, ciphertext: string }>} A promise that resolves to an object containing the base64-encoded IV and ciphertext.
+ * @returns {Promise<{ salt: string, iv: string, ciphertext: string }>} A promise that resolves to an object with the base64-encoded salt, IV, and ciphertext.
  */
-export async function encryptSymmetric(plaintext: string, password: string): Promise<{ iv: string, ciphertext: string }> {
-  const key = await deriveKeyFromPassword(password);
+export async function encryptSymmetric(plaintext: string, password: string): Promise<{ salt: string, iv: string, ciphertext: string }> {
+  const salt = window.crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKeyFromPassword(password, salt);
   const iv = window.crypto.getRandomValues(new Uint8Array(12)); // 12 bytes is recommended for AES-GCM.
   const plaintextBuffer = textToArrayBuffer(plaintext);
   const ciphertextBuffer = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintextBuffer);
 
   return {
+    salt: bufferToBase64(salt),
     iv: bufferToBase64(iv),
     ciphertext: bufferToBase64(ciphertextBuffer),
   };
 }
 
 /**
- * Decrypts a ciphertext string using a password.
- * @param {{ iv: string, ciphertext: string }} encrypted - The encrypted data object.
+ * Decrypts a ciphertext string using a password and the associated salt.
+ * @param {{ salt: string, iv: string, ciphertext: string }} encrypted - The encrypted data object.
  * @param {string} password - The password to use for decryption.
  * @returns {Promise<string>} A promise that resolves to the decrypted plaintext string.
  * @throws {DOMException} if decryption fails (e.g., wrong password).
  */
-export async function decryptSymmetric(encrypted: { iv: string, ciphertext: string }, password: string): Promise<string> {
-  const key = await deriveKeyFromPassword(password);
+export async function decryptSymmetric(encrypted: { salt: string, iv: string, ciphertext: string }, password: string): Promise<string> {
+  const salt = base64ToBuffer(encrypted.salt);
+  const key = await deriveKeyFromPassword(password, salt);
   const iv = base64ToBuffer(encrypted.iv);
   const ciphertext = base64ToBuffer(encrypted.ciphertext);
   const decryptedBuffer = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);

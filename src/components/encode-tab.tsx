@@ -235,7 +235,11 @@ export default function EncodeTab() {
         }));
         
         // 3. Assemble the full data payload.
-        const payload: { senderPublicKey?: JsonWebKey; decoy: any; messages: any[]; } = {
+        const payload: {
+            senderPublicKey?: JsonWebKey; 
+            decoy: { salt: string; iv: string; ciphertext: string }; 
+            messages: any[];
+        } = {
             decoy: encryptedDecoy,
             messages: encryptedMessages,
         };

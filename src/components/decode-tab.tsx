@@ -19,7 +19,7 @@ const SIGNATURE_LENGTH_BYTES = 64;
 /** Defines the structure of the decoded, but not yet decrypted, data from a file. */
 type DecodedData = {
   senderPublicKey?: JsonWebKey;
-  decoy: { iv: string; ciphertext: string; };
+  decoy: { salt: string; iv: string; ciphertext: string; };
   messages: { recipientPublicKeyHash: string; ephemeralPublicKey: JsonWebKey; iv: string; ciphertext:string; }[];
 };
 
