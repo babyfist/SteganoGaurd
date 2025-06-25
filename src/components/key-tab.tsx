@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Pencil, Copy, ArrowUp, ArrowDown } from 'lucide-react';
+import { KeyRound, Download, Loader2, UserPlus, Trash2, Upload, CheckCircle2, User, Users, ShieldCheck, MoreHorizontal, Pencil, Copy, ArrowUp, ArrowDown, FileWarning } from 'lucide-react';
 
 /**
  * The KeyTab component is responsible for all identity and contact management.
@@ -38,6 +38,9 @@ export default function KeyTab() {
   const [addingContactTo, setAddingContactTo] = useState<string | null>(null);
   const [contactName, setContactName] = useState('');
   const [pendingContactKeyFile, setPendingContactKeyFile] = useState<File | null>(null);
+
+  // State for the security warning on identity export.
+  const [identityToExport, setIdentityToExport] = useState<IdentityKeyPair | null>(null);
 
   // Refs for file inputs and toast notifications.
   const importIdentityRef = useRef<HTMLInputElement>(null);
@@ -393,7 +396,7 @@ export default function KeyTab() {
                                 <DropdownMenuItem onClick={() => handleCopyIdentityPublicKey(identity.id)}><Copy className="mr-2 h-4 w-4" /> Copy Public Key</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDownloadIdentityPublicKey(identity.id)}><Download className="mr-2 h-4 w-4" /> Download Public Key</DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => exportIdentity(identity.id)}><Download className="mr-2 h-4 w-4" /> Backup Full Identity</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setIdentityToExport(identity)}><Download className="mr-2 h-4 w-4" /> Backup Full Identity</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleExportContacts(identity.id)} disabled={!identity.contacts || identity.contacts.length === 0}><Users className="mr-2 h-4 w-4" /> Export Contacts</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <AlertDialog>
@@ -521,6 +524,39 @@ export default function KeyTab() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Security Warning on Identity Export */}
+      <AlertDialog open={!!identityToExport} onOpenChange={(isOpen) => !isOpen && setIdentityToExport(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><FileWarning className="text-destructive" /> Security Warning</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to export a full backup of the identity "{identityToExport?.name}".
+              <br /><br />
+              <strong className="text-destructive-foreground">This file will contain your unencrypted private keys.</strong> Anyone with access to this file can impersonate you and decrypt your messages.
+              <br /><br />
+              Store this file in a secure, encrypted location, like a password manager or an encrypted disk. Do not share it or store it in an insecure location like your Downloads folder or a cloud drive.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (identityToExport) {
+                  exportIdentity(identityToExport.id);
+                  toast({ title: "Identity Exported", description: `A backup for "${identityToExport.name}" has been downloaded.` });
+                }
+                setIdentityToExport(null);
+              }}
+            >
+              I understand, Export Backup
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
+
+    
