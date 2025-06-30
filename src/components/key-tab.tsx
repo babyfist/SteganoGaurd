@@ -547,6 +547,14 @@ export default function KeyTab() {
                  <Label htmlFor="add-contact-file" className={cn(buttonVariants({ variant: 'link' }), 'p-0 h-auto cursor-pointer')}>
                     Or upload a key file
                  </Label>
+                 {pendingContactKeyFile && (
+                    <Alert variant="default" className="mt-2 text-sm">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <AlertDescription>
+                            File selected: <span className="font-semibold">{pendingContactKeyFile.name}</span>
+                        </AlertDescription>
+                    </Alert>
+                 )}
               </div>
             </div>
             <DialogFooter>
