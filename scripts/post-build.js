@@ -27,10 +27,11 @@ async function main() {
     console.log("Starting post-build script for web extension...");
 
     const outDir = path.join(__dirname, '..', 'out');
-    const nextDir = path.join(outDir, '_next');
-    const chunksDir = path.join(nextDir, 'static', 'chunks');
-
-    // Section for renaming `_next` to `next-assets` has been removed for testing.
+    const oldNextDir = path.join(outDir, '_next');
+    const newNextDir = path.join(outDir, 'next-assets');
+    
+    // Use oldNextDir to find chunks directory before it's renamed
+    const chunksDir = path.join(oldNextDir, 'static', 'chunks');
 
     // Extract inline scripts from HTML files to comply with Manifest V3 CSP
     const htmlFiles = findFilesByExt(outDir, '.html');
@@ -40,7 +41,7 @@ async function main() {
         let modified = false;
 
         // Ensure the directory for extracted scripts exists
-        if (!fs.existsSync(chunksDir)) {
+        if (fs.existsSync(oldNextDir) && !fs.existsSync(chunksDir)) {
             fs.mkdirSync(chunksDir, { recursive: true });
         }
         
@@ -55,7 +56,8 @@ async function main() {
                 fs.writeFileSync(scriptPath, scriptContent.trim(), 'utf8');
                 console.log(`Extracted inline script to ${path.relative(outDir, scriptPath)}`);
 
-                return `<script src="./_next/static/chunks/${scriptFilename}"></script>`;
+                // The path here uses _next, which we will replace later
+                return `<script src="/_next/static/chunks/${scriptFilename}"></script>`;
             }
             // Return original tag if script is empty
             return scriptTag;
@@ -69,21 +71,27 @@ async function main() {
         }
     }
 
-    // Fix all asset paths to be relative
+    // Rename the directory
+    if (fs.existsSync(oldNextDir)) {
+        fs.renameSync(oldNextDir, newNextDir);
+        console.log('Renamed `_next` directory to `next-assets`');
+    }
+
+    // Fix all asset paths to be relative and use the new directory name
     try {
         const { replaceInFileSync } = await import('replace-in-file');
         
         const filesToPatch = [
             path.join(outDir, '**/*.html'),
             path.join(outDir, '**/*.css'),
-            path.join(nextDir, '**/*.js'),
+            path.join(newNextDir, '**/*.js'), // Search in the NEW directory
         ];
         
-        // Replace absolute paths (`/_next/...`) with relative paths (`./_next/...`)
+        // This regex finds all occurrences of `/_next/` and replaces them.
         const results = replaceInFileSync({
             files: filesToPatch,
-            from: /"\/_next\//g,
-            to: '"./_next/',
+            from: /\/_next\//g,
+            to: './next-assets/',
             allowEmptyPaths: true,
         });
 
