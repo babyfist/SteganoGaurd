@@ -261,15 +261,15 @@ function bufferToBase64(buffer: ArrayBuffer): string {
     return window.btoa(binary);
 }
 
-/** Converts a Base64 string to an ArrayBuffer using a browser-safe method. */
-function base64ToBuffer(base64: string): ArrayBuffer {
+/** Converts a Base64 string to a Uint8Array using a browser-safe method. */
+function base64ToBuffer(base64: string): Uint8Array {
     const binary_string = window.atob(base64);
     const len = binary_string.length;
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
         bytes[i] = binary_string.charCodeAt(i);
     }
-    return bytes.buffer;
+    return bytes;
 }
 
 
