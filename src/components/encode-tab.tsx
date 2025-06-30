@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
-import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarning, Users, ShieldCheck, FileDown, UserPlus, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Upload, KeyRound, Lock, Image as ImageIcon, Download, Loader2, FileWarning, Users, ShieldCheck, FileDown, UserPlus, CheckCircle2, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 
@@ -37,6 +37,7 @@ export default function EncodeTab() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<{ url: string; fileName: string; isImage: boolean } | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [isFormCollapsed, setIsFormCollapsed] = useState(false);
   
   // Identities and active identity from local storage.
   const [identities, setIdentities] = useLocalStorage<IdentityKeyPair[]>('myKeys', []);
@@ -165,6 +166,27 @@ export default function EncodeTab() {
     toast({ title: "Contact Saved", description: `"${promptSaveContact.name}" has been added to your contacts.` });
     setPromptSaveContact(null);
   };
+
+  /** Resets the entire form to its initial state. */
+  const handleReset = () => {
+    setCoverImage(null);
+    setDecoyMessage('');
+    setPassword('');
+    setSecretMessage('');
+    setSelectedContactIds(new Set());
+    setError('');
+    setResult(null);
+    setSendToNew(false);
+    setNewRecipientName('');
+    setNewRecipientKeyInput('');
+    setValidatedNewRecipient(null);
+    setNewRecipientError('');
+    setStampText('');
+    setIsFormCollapsed(false);
+    if (coverImageRef.current) {
+      coverImageRef.current.value = '';
+    }
+  };
   
   /**
    * The main handler for the encoding process. It gathers all inputs, performs the necessary
@@ -274,6 +296,7 @@ export default function EncodeTab() {
         }
 
         toast({ title: "Success!", description: "Your message has been securely embedded in the file." });
+        setIsFormCollapsed(true);
         
         // Prompt to save the new contact if one was used.
         if (sendToNew && validatedNewRecipient) {
@@ -300,176 +323,178 @@ export default function EncodeTab() {
           <CardDescription>Embed a secret message into a file, optionally signed with your active identity.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Column: Inputs */}
-              <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">1. Inputs</h3>
-                  <div className="space-y-2">
-                      <Label htmlFor="cover-image">Cover File (Images are converted to PNG)</Label>
-                      <Input id="cover-image" type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx" ref={coverImageRef} onChange={(e) => setCoverImage(e.target.files?.[0] || null)} className="hidden"/>
-                      <Label htmlFor="cover-image" className={cn(buttonVariants({ variant: "outline" }), "w-full cursor-pointer font-normal")}>
-                          <ImageIcon className="w-4 h-4 mr-2" /> {coverImage ? coverImage.name : "Select Cover File"}
-                      </Label>
-                  </div>
-                   <div className="space-y-2">
-                      <Label htmlFor="decoy-message">Password Protected Message (Public)</Label>
-                      <Textarea id="decoy-message" placeholder="A plausible, non-secret message." value={decoyMessage} onChange={e => setDecoyMessage(e.target.value)} />
-                  </div>
-                   <div className="space-y-2">
-                        <Label htmlFor="password">Password for Message</Label>
-                        <div className="relative">
-                            <Input
-                                id="password"
-                                type={showPassword ? 'text' : 'password'}
-                                placeholder="Password to reveal message"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="pr-10"
-                            />
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:bg-transparent"
-                                onClick={() => setShowPassword(!showPassword)}
-                                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            >
-                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                            </Button>
-                        </div>
+          {!isFormCollapsed && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column: Inputs */}
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">1. Inputs</h3>
+                    <div className="space-y-2">
+                        <Label htmlFor="cover-image">Cover File (Images are converted to PNG)</Label>
+                        <Input id="cover-image" type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx" ref={coverImageRef} onChange={(e) => setCoverImage(e.target.files?.[0] || null)} className="hidden"/>
+                        <Label htmlFor="cover-image" className={cn(buttonVariants({ variant: "outline" }), "w-full cursor-pointer font-normal")}>
+                            <ImageIcon className="w-4 h-4 mr-2" /> {coverImage ? coverImage.name : "Select Cover File"}
+                        </Label>
                     </div>
-                   <div className="space-y-2">
-                      <Label htmlFor="secret-message">Encrypted Message (Private to Selected Contacts)</Label>
-                      <Textarea id="secret-message" placeholder="Your true hidden message." value={secretMessage} onChange={e => setSecretMessage(e.target.value)} />
-                  </div>
-              </div>
-              {/* Right Column: Identity, Watermark, Recipients */}
-              <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">2. Identity & Recipients</h3>
-                  <div className="space-y-2">
-                      <Label>Signing Identity</Label>
-                      {!isMounted ? (
-                          <Alert><Loader2 className="h-4 w-4 animate-spin" /><AlertTitle>Loading Identity...</AlertTitle></Alert>
-                      ) : activeIdentity ? (
-                        <Alert>
-                           <ShieldCheck className="h-4 w-4" />
-                           <div className="flex justify-between items-center">
-                              <div>
-                                <AlertTitle>Active Identity</AlertTitle>
-                                <AlertDescription>{activeIdentity.name}</AlertDescription>
-                              </div>
-                              <div className="flex items-center space-x-4 pr-2">
-                                {coverImage?.type.startsWith('image/') && (
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox id="stamp-checkbox" checked={includeStamp} onCheckedChange={(checked) => setIncludeStamp(Boolean(checked))} />
-                                        <Label htmlFor="stamp-checkbox" className="font-normal cursor-pointer">Watermark</Label>
-                                    </div>
-                                )}
-                                <div className="flex items-center space-x-2">
-                                    <Checkbox id="sign-checkbox" checked={includeSignature} onCheckedChange={(checked) => setIncludeSignature(Boolean(checked))} />
-                                    <Label htmlFor="sign-checkbox" className="font-bold cursor-pointer">Sign</Label>
-                                </div>
-                              </div>
-                           </div>
-                        </Alert>
-                      ) : (
-                          <Alert variant="destructive"><AlertTitle>No Active Identity</AlertTitle><AlertDescription>Go to Key Management to set an active identity.</AlertDescription></Alert>
-                      )}
-                  </div>
-
-                  {/* Watermark Options Section */}
-                  {coverImage?.type.startsWith('image/') && includeStamp && (
-                    <div className="space-y-4 p-4 border rounded-md bg-muted/50">
-                        <h4 className="font-semibold">Visible Watermark Options</h4>
-                        <div className="space-y-2">
-                            <Label htmlFor="stamp-text">Watermark Text</Label>
-                            <Input id="stamp-text" value={stampText} onChange={e => setStampText(e.target.value)} placeholder="Defaults to public key hash" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="stamp-font">Font</Label>
-                                <Select value={stampFont} onValueChange={setStampFont}>
-                                    <SelectTrigger id="stamp-font"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Arial">Arial</SelectItem>
-                                        <SelectItem value="Verdana">Verdana</SelectItem>
-                                        <SelectItem value="Times New Roman">Times New Roman</SelectItem>
-                                        <SelectItem value="Courier New">Courier New</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="stamp-size">Font Size</Label>
-                                <Select value={String(stampSize)} onValueChange={(val) => setStampSize(Number(val))}>
-                                    <SelectTrigger id="stamp-size"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="12">12px</SelectItem>
-                                        <SelectItem value="16">16px</SelectItem>
-                                        <SelectItem value="24">24px</SelectItem>
-                                        <SelectItem value="32">32px</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="decoy-message">Password Protected Message (Public)</Label>
+                        <Textarea id="decoy-message" placeholder="A plausible, non-secret message." value={decoyMessage} onChange={e => setDecoyMessage(e.target.value)} />
                     </div>
-                  )}
-
-                  {/* Recipient Selection */}
-                  {sendToNew ? (
-                    // Form for a new recipient.
-                    <div className="space-y-4 p-4 border rounded-md bg-muted/50">
-                        <h4 className="font-semibold flex items-center justify-between">
-                          New Recipient Details
-                          {validatedNewRecipient && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                        </h4>
-                        <div className="space-y-2">
-                            <Label htmlFor="new-recipient-name">Recipient Name</Label>
-                            <Input id="new-recipient-name" value={newRecipientName} onChange={e => setNewRecipientName(e.target.value)} placeholder="e.g., Bob" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="new-recipient-key">Recipient Public Key</Label>
-                            <Textarea id="new-recipient-key" value={newRecipientKeyInput} onChange={e => setNewRecipientKeyInput(e.target.value)} placeholder="Paste the recipient's public key JSON here" rows={3} />
-                            <Input id="new-recipient-file" type="file" ref={newRecipientKeyFileRef} onChange={(e) => handleNewRecipientFile(e.target.files?.[0] || null)} className="hidden"/>
-                            <Label htmlFor="new-recipient-file" className={cn(buttonVariants({ variant: "link" }), "p-0 h-auto cursor-pointer")}>
-                              Or upload a key file
-                            </Label>
-                        </div>
-                        {newRecipientError && <Alert variant="destructive" className="text-xs"><FileWarning className="h-3 w-3" /><AlertDescription>{newRecipientError}</AlertDescription></Alert>}
-                    </div>
-                  ) : (
-                    // List of existing contacts.
-                    <fieldset disabled={!isMounted || !activeIdentity} className="space-y-2 disabled:opacity-50">
-                        <Label>Recipients from Contacts</Label>
-                         {!isMounted ? (
-                             <Alert><Loader2 className="h-4 w-4 animate-spin" /><AlertTitle>Loading Contacts...</AlertTitle></Alert>
-                         ) : !activeIdentity ? (
-                            <Alert variant="destructive"><Users className="h-4 w-4" /><AlertTitle>Set Active Identity</AlertTitle><AlertDescription>Select an active identity to see its contacts.</AlertDescription></Alert>
-                         ) : contacts.length === 0 ? (
-                            <Alert><Users className="h-4 w-4" /><AlertTitle>No Contacts Found</AlertTitle><AlertDescription>Go to Key Management to add contacts to your active identity.</AlertDescription></Alert>
-                         ) : (
-                            <div className="space-y-2 pt-2 border rounded-md p-3 max-h-48 overflow-y-auto">
-                                {contacts.map((contact) => (
-                                    <div key={contact.id} className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id={`contact-${contact.id}`}
-                                            checked={selectedContactIds.has(contact.id)}
-                                            onCheckedChange={() => handleToggleRecipient(contact.id)}
-                                        />
-                                        <Label htmlFor={`contact-${contact.id}`} className="font-normal cursor-pointer">{contact.name}</Label>
-                                    </div>
-                                ))}
-                            </div>
-                         )}
-                    </fieldset>
-                  )}
-                   <div className="space-y-2 pt-4">
-                      <div className="flex items-center space-x-2">
-                          <Checkbox id="send-to-new" checked={sendToNew} onCheckedChange={(checked) => setSendToNew(Boolean(checked))} />
-                          <Label htmlFor="send-to-new" className="cursor-pointer">Send to a new recipient (not in contacts)</Label>
+                     <div className="space-y-2">
+                          <Label htmlFor="password">Password for Message</Label>
+                          <div className="relative">
+                              <Input
+                                  id="password"
+                                  type={showPassword ? 'text' : 'password'}
+                                  placeholder="Password to reveal message"
+                                  value={password}
+                                  onChange={(e) => setPassword(e.target.value)}
+                                  className="pr-10"
+                              />
+                              <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:bg-transparent"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                              >
+                                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                              </Button>
+                          </div>
                       </div>
-                  </div>
-              </div>
-          </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="secret-message">Encrypted Message (Private to Selected Contacts)</Label>
+                        <Textarea id="secret-message" placeholder="Your true hidden message." value={secretMessage} onChange={e => setSecretMessage(e.target.value)} />
+                    </div>
+                </div>
+                {/* Right Column: Identity, Watermark, Recipients */}
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">2. Identity & Recipients</h3>
+                    <div className="space-y-2">
+                        <Label>Signing Identity</Label>
+                        {!isMounted ? (
+                            <Alert><Loader2 className="h-4 w-4 animate-spin" /><AlertTitle>Loading Identity...</AlertTitle></Alert>
+                        ) : activeIdentity ? (
+                          <Alert>
+                             <ShieldCheck className="h-4 w-4" />
+                             <div className="flex justify-between items-center">
+                                <div>
+                                  <AlertTitle>Active Identity</AlertTitle>
+                                  <AlertDescription>{activeIdentity.name}</AlertDescription>
+                                </div>
+                                <div className="flex items-center space-x-4 pr-2">
+                                  {coverImage?.type.startsWith('image/') && (
+                                      <div className="flex items-center space-x-2">
+                                          <Checkbox id="stamp-checkbox" checked={includeStamp} onCheckedChange={(checked) => setIncludeStamp(Boolean(checked))} />
+                                          <Label htmlFor="stamp-checkbox" className="font-normal cursor-pointer">Watermark</Label>
+                                      </div>
+                                  )}
+                                  <div className="flex items-center space-x-2">
+                                      <Checkbox id="sign-checkbox" checked={includeSignature} onCheckedChange={(checked) => setIncludeSignature(Boolean(checked))} />
+                                      <Label htmlFor="sign-checkbox" className="font-bold cursor-pointer">Sign</Label>
+                                  </div>
+                                </div>
+                             </div>
+                          </Alert>
+                        ) : (
+                            <Alert variant="destructive"><AlertTitle>No Active Identity</AlertTitle><AlertDescription>Go to Key Management to set an active identity.</AlertDescription></Alert>
+                        )}
+                    </div>
+
+                    {/* Watermark Options Section */}
+                    {coverImage?.type.startsWith('image/') && includeStamp && (
+                      <div className="space-y-4 p-4 border rounded-md bg-muted/50">
+                          <h4 className="font-semibold">Visible Watermark Options</h4>
+                          <div className="space-y-2">
+                              <Label htmlFor="stamp-text">Watermark Text</Label>
+                              <Input id="stamp-text" value={stampText} onChange={e => setStampText(e.target.value)} placeholder="Defaults to public key hash" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                  <Label htmlFor="stamp-font">Font</Label>
+                                  <Select value={stampFont} onValueChange={setStampFont}>
+                                      <SelectTrigger id="stamp-font"><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="Arial">Arial</SelectItem>
+                                          <SelectItem value="Verdana">Verdana</SelectItem>
+                                          <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                                          <SelectItem value="Courier New">Courier New</SelectItem>
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                              <div className="space-y-2">
+                                  <Label htmlFor="stamp-size">Font Size</Label>
+                                  <Select value={String(stampSize)} onValueChange={(val) => setStampSize(Number(val))}>
+                                      <SelectTrigger id="stamp-size"><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="12">12px</SelectItem>
+                                          <SelectItem value="16">16px</SelectItem>
+                                          <SelectItem value="24">24px</SelectItem>
+                                          <SelectItem value="32">32px</SelectItem>
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                          </div>
+                      </div>
+                    )}
+
+                    {/* Recipient Selection */}
+                    {sendToNew ? (
+                      // Form for a new recipient.
+                      <div className="space-y-4 p-4 border rounded-md bg-muted/50">
+                          <h4 className="font-semibold flex items-center justify-between">
+                            New Recipient Details
+                            {validatedNewRecipient && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+                          </h4>
+                          <div className="space-y-2">
+                              <Label htmlFor="new-recipient-name">Recipient Name</Label>
+                              <Input id="new-recipient-name" value={newRecipientName} onChange={e => setNewRecipientName(e.target.value)} placeholder="e.g., Bob" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="new-recipient-key">Recipient Public Key</Label>
+                              <Textarea id="new-recipient-key" value={newRecipientKeyInput} onChange={e => setNewRecipientKeyInput(e.target.value)} placeholder="Paste the recipient's public key JSON here" rows={3} />
+                              <Input id="new-recipient-file" type="file" ref={newRecipientKeyFileRef} onChange={(e) => handleNewRecipientFile(e.target.files?.[0] || null)} className="hidden"/>
+                              <Label htmlFor="new-recipient-file" className={cn(buttonVariants({ variant: "link" }), "p-0 h-auto cursor-pointer")}>
+                                Or upload a key file
+                              </Label>
+                          </div>
+                          {newRecipientError && <Alert variant="destructive" className="text-xs"><FileWarning className="h-3 w-3" /><AlertDescription>{newRecipientError}</AlertDescription></Alert>}
+                      </div>
+                    ) : (
+                      // List of existing contacts.
+                      <fieldset disabled={!isMounted || !activeIdentity} className="space-y-2 disabled:opacity-50">
+                          <Label>Recipients from Contacts</Label>
+                           {!isMounted ? (
+                               <Alert><Loader2 className="h-4 w-4 animate-spin" /><AlertTitle>Loading Contacts...</AlertTitle></Alert>
+                           ) : !activeIdentity ? (
+                              <Alert variant="destructive"><Users className="h-4 w-4" /><AlertTitle>Set Active Identity</AlertTitle><AlertDescription>Select an active identity to see its contacts.</AlertDescription></Alert>
+                           ) : contacts.length === 0 ? (
+                              <Alert><Users className="h-4 w-4" /><AlertTitle>No Contacts Found</AlertTitle><AlertDescription>Go to Key Management to add contacts to your active identity.</AlertDescription></Alert>
+                           ) : (
+                              <div className="space-y-2 pt-2 border rounded-md p-3 max-h-48 overflow-y-auto">
+                                  {contacts.map((contact) => (
+                                      <div key={contact.id} className="flex items-center space-x-2">
+                                          <Checkbox
+                                              id={`contact-${contact.id}`}
+                                              checked={selectedContactIds.has(contact.id)}
+                                              onCheckedChange={() => handleToggleRecipient(contact.id)}
+                                          />
+                                          <Label htmlFor={`contact-${contact.id}`} className="font-normal cursor-pointer">{contact.name}</Label>
+                                      </div>
+                                  ))}
+                              </div>
+                           )}
+                      </fieldset>
+                    )}
+                     <div className="space-y-2 pt-4">
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="send-to-new" checked={sendToNew} onCheckedChange={(checked) => setSendToNew(Boolean(checked))} />
+                            <Label htmlFor="send-to-new" className="cursor-pointer">Send to a new recipient (not in contacts)</Label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          )}
 
           {error && (
               <Alert variant="destructive" className="mt-4"><FileWarning className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>
@@ -478,8 +503,8 @@ export default function EncodeTab() {
           {/* Result Display Section */}
           {result && (
               <div className="space-y-4 pt-4">
-                  <h3 className="font-semibold text-lg">Result</h3>
-                  <div className="border rounded-md p-4 flex flex-col items-center gap-4">
+                  <h3 className="font-semibold text-lg text-center">Result: File Ready</h3>
+                  <div className="border rounded-md p-4 flex flex-col items-center gap-4 bg-muted/20">
                       {result.isImage ? (
                           <img src={result.url} alt="Steganographic Result" className="max-w-full md:max-w-md rounded-md shadow-md"/>
                       ) : (
@@ -489,25 +514,36 @@ export default function EncodeTab() {
                               <p className="text-sm text-muted-foreground truncate">{result.fileName}</p>
                           </div>
                       )}
-                      <Button onClick={() => {
-                          const a = document.createElement('a');
-                          a.href = result.url;
-                          a.download = result.fileName;
-                          a.click();
-                      }}>
-                          <Download className="w-4 h-4 mr-2" /> Download File
-                      </Button>
+                      <div className="flex items-center gap-4">
+                        <Button onClick={() => {
+                            const a = document.createElement('a');
+                            a.href = result.url;
+                            a.download = result.fileName;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        }}>
+                            <Download className="w-4 h-4 mr-2" /> Download File
+                        </Button>
+                        <Button variant="secondary" onClick={handleReset}>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Start Over
+                        </Button>
+                      </div>
                   </div>
               </div>
           )}
 
         </CardContent>
-        <CardFooter>
-          <Button onClick={handleEncode} disabled={isLoading || !isMounted || (includeSignature && !activeIdentity)} className="w-full">
-              {isLoading ? <Loader2 className="animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}
-              {includeSignature ? 'Encode, Sign, and Embed' : 'Encode and Embed'}
-          </Button>
-        </CardFooter>
+
+        {!isFormCollapsed && (
+          <CardFooter>
+            <Button onClick={handleEncode} disabled={isLoading || !isMounted || (includeSignature && !activeIdentity)} className="w-full">
+                {isLoading ? <Loader2 className="animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}
+                {includeSignature ? 'Encode, Sign, and Embed' : 'Encode and Embed'}
+            </Button>
+          </CardFooter>
+        )}
       </Card>
 
       {/* Dialog to prompt saving a new contact. */}
@@ -528,3 +564,5 @@ export default function EncodeTab() {
     </>
   );
 }
+
+    
