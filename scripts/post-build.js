@@ -1,76 +1,119 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
-const outDir = path.join(__dirname, '..', 'out');
-const oldNextDir = path.join(outDir, '_next');
-const newNextDir = path.join(outDir, 'next-assets');
-
-// 1. Rename the _next directory to next-assets. This is often done to avoid
-// issues with ad blockers that might target the default "_next" folder name.
-if (fs.existsSync(oldNextDir)) {
-  try {
-    fs.renameSync(oldNextDir, newNextDir);
-    console.log('Successfully renamed out/_next to out/next-assets');
-  } catch (error) {
-    console.error(`Error renaming directory: ${error}`);
-    process.exit(1);
-  }
-} else {
-    console.log('out/_next directory does not exist, skipping rename.');
+// Utility to find all files with a specific extension recursively
+function findFilesByExt(startPath, filter) {
+    let results = [];
+    if (!fs.existsSync(startPath)) {
+        console.log("Directory not found: ", startPath);
+        return [];
+    }
+    const files = fs.readdirSync(startPath);
+    for (let i = 0; i < files.length; i++) {
+        const filename = path.join(startPath, files[i]);
+        const stat = fs.lstatSync(filename);
+        if (stat.isDirectory()) {
+            results = results.concat(findFilesByExt(filename, filter));
+        } else if (filename.endsWith(filter)) {
+            results.push(filename);
+        }
+    }
+    return results;
 }
 
-// 2. Define options for replace-in-file to fix asset paths.
-// We need to replace all absolute "/_next" paths with relative "./next-assets" paths.
-const options = {
-  files: [
-    path.join(outDir, '**/*.html'),
-    path.join(outDir, '**/*.css'),
-    path.join(newNextDir, '**/*.js'),
-  ],
-  from: /\/_next/g,
-  to: 'next-assets', // Changed to be relative without the dot, as it will be prepended by the slash.
-  allowEmptyPaths: true,
-};
+async function main() {
+    console.log("Starting post-build script for web extension...");
 
-// 3. Run the replacement using a dynamic import for the ESM-only package.
-(async function() {
-    try {
-        if (fs.existsSync(outDir)) {
-            // Dynamically import the ESM package
-            const { replaceInFileSync } = await import('replace-in-file');
-            
-            // First pass: replace absolute paths like src="/_next..."
-            const results1 = replaceInFileSync({
-              ...options,
-              from: /"\/_next/g,
-              to: '"./next-assets',
-            });
-            
-            // Second pass: replace relative paths within JS files, like url(_next/...)
-            const results2 = replaceInFileSync({
-              ...options,
-              files: path.join(newNextDir, '**/*.js'),
-              from: /_next\//g,
-              to: 'next-assets/',
-            });
-            
-            const changedFiles1 = results1.filter(r => r.hasChanged).map(r => path.relative(outDir, r.file));
-            const changedFiles2 = results2.filter(r => r.hasChanged).map(r => path.relative(outDir, r.file));
-            const allChangedFiles = [...new Set([...changedFiles1, ...changedFiles2])];
+    const outDir = path.join(__dirname, '..', 'out');
+    const oldNextDir = path.join(outDir, '_next');
+    const newNextDir = path.join(outDir, 'next-assets');
+    const chunksDir = path.join(newNextDir, 'static', 'chunks');
 
-            if (allChangedFiles.length > 0) {
-                console.log('Replaced asset paths in:', allChangedFiles);
-            } else {
-                console.log('No asset paths needed replacement.');
-            }
-        } else {
-            console.log('`out` directory not found, skipping path replacement.');
+    // 1. Rename `_next` to `next-assets` to avoid ad-blockers
+    if (fs.existsSync(oldNextDir)) {
+        try {
+            fs.renameSync(oldNextDir, newNextDir);
+            console.log('Renamed out/_next to out/next-assets');
+        } catch (error) {
+            console.error(`Error renaming directory: ${error}`);
+            process.exit(1);
         }
+    }
+
+    // 2. Extract inline scripts from HTML files to comply with Manifest V3 CSP
+    const htmlFiles = findFilesByExt(outDir, '.html');
+    for (const htmlFile of htmlFiles) {
+        let content = fs.readFileSync(htmlFile, 'utf8');
+        const inlineScriptRegex = /<script>(.*?)<\/script>/gs;
+        let match;
+        let modified = false;
+
+        // Ensure the directory for extracted scripts exists
+        if (!fs.existsSync(chunksDir)) {
+            fs.mkdirSync(chunksDir, { recursive: true });
+        }
+        
+        // Use a function to replace content to handle multiple scripts correctly
+        const replacer = (scriptTag, scriptContent) => {
+            if (scriptContent && scriptContent.trim()) {
+                modified = true;
+                const hash = crypto.createHash('sha256').update(scriptContent).digest('hex').substring(0, 16);
+                const scriptFilename = `inline-${hash}.js`;
+                const scriptPath = path.join(chunksDir, scriptFilename);
+                
+                fs.writeFileSync(scriptPath, scriptContent.trim(), 'utf8');
+                console.log(`Extracted inline script to ${path.relative(outDir, scriptPath)}`);
+
+                return `<script src="./next-assets/static/chunks/${scriptFilename}"></script>`;
+            }
+            // Return original tag if script is empty
+            return scriptTag;
+        }
+
+        const newContent = content.replace(inlineScriptRegex, replacer);
+        
+        if (modified) {
+            fs.writeFileSync(htmlFile, newContent, 'utf8');
+            console.log(`Updated script tags in ${path.basename(htmlFile)}`);
+        }
+    }
+
+    // 3. Fix all asset paths to be relative
+    try {
+        const { replaceInFileSync } = await import('replace-in-file');
+        
+        const filesToPatch = [
+            path.join(outDir, '**/*.html'),
+            path.join(outDir, '**/*.css'),
+            path.join(newNextDir, '**/*.js'),
+        ];
+        
+        // Replace absolute paths (`/_next/...`) with relative paths (`./next-assets/...`)
+        const results = replaceInFileSync({
+            files: filesToPatch,
+            from: /"\/_next\//g,
+            to: '"./next-assets/',
+            allowEmptyPaths: true,
+        });
+
+        const changedFiles = results
+            .filter(r => r.hasChanged)
+            .map(r => path.relative(outDir, r.file));
+
+        if (changedFiles.length > 0) {
+            console.log('Fixed asset paths in:', [...new Set(changedFiles)]);
+        } else {
+            console.log('No asset paths needed fixing.');
+        }
+
     } catch (error) {
-        console.error('Error occurred during file replacement:', error);
+        console.error('Error occurred during file path replacement:', error);
         process.exit(1);
     }
-    
-    console.log('Post-build script completed successfully.');
-})();
+
+    console.log('Post-build script finished successfully.');
+}
+
+main();
