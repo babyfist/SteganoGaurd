@@ -33,7 +33,7 @@ const PBKDF2_PARAMS_BASE = {
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to a CryptoKeyPair containing a publicKey and privateKey.
  */
 export async function generateSigningKeyPair(): Promise<CryptoKeyPair> {
-  return await window.crypto.subtle.generateKey(SIGN_ALGO, true, ['sign', 'verify']);
+  return await window.crypto.subtle.generateKey(SIGN_ALGO, true, ['sign', 'verify']) as CryptoKeyPair;
 }
 
 /**
@@ -41,7 +41,7 @@ export async function generateSigningKeyPair(): Promise<CryptoKeyPair> {
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to a CryptoKeyPair.
  */
 export async function generateEncryptionKeyPair(): Promise<CryptoKeyPair> {
-  return await window.crypto.subtle.generateKey(ENCRYPT_ALGO, true, ['deriveKey']);
+  return await window.crypto.subtle.generateKey(ENCRYPT_ALGO, true, ['deriveKey']) as CryptoKeyPair;
 }
 
 
