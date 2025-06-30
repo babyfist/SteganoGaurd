@@ -27,27 +27,16 @@ async function main() {
     console.log("Starting post-build script for web extension...");
 
     const outDir = path.join(__dirname, '..', 'out');
-    const oldNextDir = path.join(outDir, '_next');
-    const newNextDir = path.join(outDir, 'next-assets');
-    const chunksDir = path.join(newNextDir, 'static', 'chunks');
+    const nextDir = path.join(outDir, '_next');
+    const chunksDir = path.join(nextDir, 'static', 'chunks');
 
-    // 1. Rename `_next` to `next-assets` to avoid ad-blockers
-    if (fs.existsSync(oldNextDir)) {
-        try {
-            fs.renameSync(oldNextDir, newNextDir);
-            console.log('Renamed out/_next to out/next-assets');
-        } catch (error) {
-            console.error(`Error renaming directory: ${error}`);
-            process.exit(1);
-        }
-    }
+    // Section for renaming `_next` to `next-assets` has been removed for testing.
 
-    // 2. Extract inline scripts from HTML files to comply with Manifest V3 CSP
+    // Extract inline scripts from HTML files to comply with Manifest V3 CSP
     const htmlFiles = findFilesByExt(outDir, '.html');
     for (const htmlFile of htmlFiles) {
         let content = fs.readFileSync(htmlFile, 'utf8');
         const inlineScriptRegex = /<script>(.*?)<\/script>/gs;
-        let match;
         let modified = false;
 
         // Ensure the directory for extracted scripts exists
@@ -66,7 +55,7 @@ async function main() {
                 fs.writeFileSync(scriptPath, scriptContent.trim(), 'utf8');
                 console.log(`Extracted inline script to ${path.relative(outDir, scriptPath)}`);
 
-                return `<script src="./next-assets/static/chunks/${scriptFilename}"></script>`;
+                return `<script src="./_next/static/chunks/${scriptFilename}"></script>`;
             }
             // Return original tag if script is empty
             return scriptTag;
@@ -80,21 +69,21 @@ async function main() {
         }
     }
 
-    // 3. Fix all asset paths to be relative
+    // Fix all asset paths to be relative
     try {
         const { replaceInFileSync } = await import('replace-in-file');
         
         const filesToPatch = [
             path.join(outDir, '**/*.html'),
             path.join(outDir, '**/*.css'),
-            path.join(newNextDir, '**/*.js'),
+            path.join(nextDir, '**/*.js'),
         ];
         
-        // Replace absolute paths (`/_next/...`) with relative paths (`./next-assets/...`)
+        // Replace absolute paths (`/_next/...`) with relative paths (`./_next/...`)
         const results = replaceInFileSync({
             files: filesToPatch,
             from: /"\/_next\//g,
-            to: '"./next-assets/',
+            to: '"./_next/',
             allowEmptyPaths: true,
         });
 
