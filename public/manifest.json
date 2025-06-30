@@ -1,19 +1,25 @@
-
 {
-  "manifest_version": 3,
-  "name": "SteganoGuard",
-  "version": "1.0",
-  "description": "Hide and sign messages in files.",
-  "action": {
-    "default_popup": "index.html",
-    "default_icon": "icon128.png"
-  },
-  "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
-  },
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
-  }
+    "manifest_version": 3,
+    "name": "SteganoGuard",
+    "version": "1.0",
+    "description": "Hide and sign secret messages within files.",
+    "permissions": [],
+    "action": {
+        "default_icon": {
+            "16": "icon16.png",
+            "48": "icon48.png",
+            "128": "icon128.png"
+        }
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "icons": {
+        "16": "icon16.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    }
 }
