@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { IdentityKeyPair, Contact } from '@/lib/types';
@@ -37,6 +38,7 @@ export default function KeyTab() {
   // State for the "Add Contact" dialog.
   const [addingContactTo, setAddingContactTo] = useState<string | null>(null);
   const [contactName, setContactName] = useState('');
+  const [contactKeyText, setContactKeyText] = useState('');
   const [pendingContactKeyFile, setPendingContactKeyFile] = useState<File | null>(null);
 
   // State for the security warning on identity export.
@@ -182,15 +184,23 @@ export default function KeyTab() {
    * Imports one or more contacts from a public key file or a contact list file.
    */
   const handleAddContact = async () => {
-    if (!pendingContactKeyFile || !addingContactTo) {
-      toast({ variant: 'destructive', title: "Error", description: "Please select a key file." });
+    if ((!contactKeyText.trim() && !pendingContactKeyFile) || !addingContactTo) {
+      toast({ variant: 'destructive', title: "Error", description: "Please paste a public key or upload a key file." });
       return;
     }
     setIsLoading(true);
 
     try {
       const { validatePublicKeys } = await import('@/lib/crypto');
-      const fileContent = await pendingContactKeyFile.text();
+      let fileContent = '';
+      if (contactKeyText.trim()) {
+        fileContent = contactKeyText.trim();
+      } else if (pendingContactKeyFile) {
+        fileContent = await pendingContactKeyFile.text();
+      } else {
+        throw new Error("No contact data provided.");
+      }
+
       const importedData = JSON.parse(fileContent);
       const identityToUpdate = identities.find(i => i.id === addingContactTo);
       if (!identityToUpdate) throw new Error("Target identity not found.");
@@ -235,6 +245,7 @@ export default function KeyTab() {
       setIsLoading(false);
       setAddingContactTo(null);
       setContactName('');
+      setContactKeyText('');
       setPendingContactKeyFile(null);
       if (addContactRef.current) { addContactRef.current.value = ""; }
     }
@@ -498,29 +509,49 @@ export default function KeyTab() {
       </Dialog>
       
        {/* Add Contact Dialog */}
-       <Dialog open={!!addingContactTo} onOpenChange={(isOpen) => { if(!isOpen) { setAddingContactTo(null); setContactName(''); setPendingContactKeyFile(null); if (addContactRef.current) addContactRef.current.value = ""; }}}>
+       <Dialog open={!!addingContactTo} onOpenChange={(isOpen) => { if(!isOpen) { setAddingContactTo(null); setContactName(''); setPendingContactKeyFile(null); setContactKeyText(''); if (addContactRef.current) addContactRef.current.value = ""; }}}>
         <DialogContent>
             <DialogHeader>
             <DialogTitle>Add New Contact</DialogTitle>
-            <DialogDescription>Import a contact by uploading their public key file. You can also import a contact list file to add multiple contacts at once.</DialogDescription>
+            <DialogDescription>Import a contact by pasting their public key JSON, or by uploading their key file. You can also import a contact list file.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="contact-name" className="text-primary">Contact Name</Label>
-                <Input id="contact-name" value={contactName} onChange={e => setContactName(e.target.value)} placeholder="e.g., Alice (only for single key files)" />
+                <Label htmlFor="contact-name">Contact Name</Label>
+                <Input id="contact-name" value={contactName} onChange={e => setContactName(e.target.value)} placeholder="e.g., Alice (for single keys), or leave blank for lists" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contact-key-file" className="text-primary">Contact Public Key / List File</Label>
-                <Input id="add-contact-file" type="file" className="hidden" ref={addContactRef} onChange={e => setPendingContactKeyFile(e.target.files?.[0] || null)} />
-                 <Label htmlFor="add-contact-file" className={cn(buttonVariants({ variant: 'outline' }), 'w-full justify-start text-muted-foreground font-normal cursor-pointer')}>
-                    <Upload className="mr-2 h-4 w-4" />
-                    {pendingContactKeyFile ? pendingContactKeyFile.name : "Select key file..."}
+                <Label htmlFor="contact-key-text">Contact Public Key(s)</Label>
+                <Textarea 
+                    id="contact-key-text"
+                    value={contactKeyText}
+                    onChange={(e) => {
+                        setContactKeyText(e.target.value);
+                        if (pendingContactKeyFile) setPendingContactKeyFile(null);
+                        if (addContactRef.current) addContactRef.current.value = "";
+                    }}
+                    placeholder="Paste public key or contact list JSON here..."
+                    rows={5}
+                />
+                <Input 
+                    id="add-contact-file" 
+                    type="file" 
+                    className="hidden" 
+                    ref={addContactRef} 
+                    onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setPendingContactKeyFile(file);
+                        if (file) setContactKeyText('');
+                    }} 
+                />
+                 <Label htmlFor="add-contact-file" className={cn(buttonVariants({ variant: 'link' }), 'p-0 h-auto cursor-pointer')}>
+                    Or upload a key file
                  </Label>
               </div>
             </div>
             <DialogFooter>
                 <DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose>
-                <Button type="button" onClick={handleAddContact} disabled={isLoading || !pendingContactKeyFile}>{isLoading ? <Loader2 className="animate-spin"/> : 'Save Contact(s)'}</Button>
+                <Button type="button" onClick={handleAddContact} disabled={isLoading || (!pendingContactKeyFile && !contactKeyText.trim())}>{isLoading ? <Loader2 className="animate-spin"/> : 'Save Contact(s)'}</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -558,5 +589,3 @@ export default function KeyTab() {
     </>
   );
 }
-
-    
