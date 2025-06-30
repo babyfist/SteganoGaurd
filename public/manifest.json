@@ -1,13 +1,10 @@
 {
   "manifest_version": 3,
   "name": "SteganoGuard",
-  "version": "1.0.0",
-  "description": "A steganography and cryptography tool to hide and sign secret messages within files.",
-  "background": {
-    "service_worker": "background.js"
-  },
+  "version": "1.0",
+  "description": "Hide and sign secret messages within files.",
   "action": {
-    "default_title": "Open SteganoGuard",
+    "default_popup": "index.html",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",
@@ -18,5 +15,8 @@
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval' 'sha256-x1jKCe5CiUOM2Z+w5tVA7xTbTQPO9Yt/+apD3d6ilL8=' 'sha256-qt14OZTqm+mQUe9ndxwRFcwqcuAJ3Zh1vF9CuK3mFVg=' 'sha256-fOh7b0ZWSgtQe+JbCz11Gjau+7tFBmFURQjek66mXZA=' 'sha256-ZBKIXCP42jZKMtmkDJFmbvbrcRinBqt//gCuDBrgRFg=' 'sha256-bsUlgQ1cXbLSGVsP/sy+HAIrPQw5pBRJ6JnBOFeJqwg='; object-src 'self'"
   }
 }
