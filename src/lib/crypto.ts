@@ -240,17 +240,29 @@ export async function decryptHybrid(encrypted: { ephemeralPublicKey: Record<stri
 
 // --- UTILITY FUNCTIONS ---
 
-/** Converts an ArrayBuffer to a UTF-8 string. */
+/**
+ * Converts an ArrayBuffer to a UTF-8 string.
+ * @param {ArrayBuffer} buffer - The buffer to convert.
+ * @returns {string} The resulting string.
+ */
 export function arrayBufferToText(buffer: ArrayBuffer): string {
   return new TextDecoder().decode(buffer);
 }
 
-/** Converts a UTF-8 string to an ArrayBuffer. */
+/**
+ * Converts a UTF-8 string to an ArrayBuffer.
+ * @param {string} text - The string to convert.
+ * @returns {ArrayBuffer} The resulting buffer.
+ */
 export function textToArrayBuffer(text: string): ArrayBuffer {
   return new TextEncoder().encode(text);
 }
 
-/** Converts an ArrayBuffer to a Base64 string using a browser-safe method. */
+/**
+ * Converts an ArrayBuffer to a Base64 string using a browser-safe method.
+ * @param {ArrayBuffer} buffer - The buffer to convert.
+ * @returns {string} The Base64-encoded string.
+ */
 function bufferToBase64(buffer: ArrayBuffer): string {
     let binary = '';
     const bytes = new Uint8Array(buffer);
@@ -261,7 +273,11 @@ function bufferToBase64(buffer: ArrayBuffer): string {
     return window.btoa(binary);
 }
 
-/** Converts a Base64 string to a Uint8Array using a browser-safe method. */
+/**
+ * Converts a Base64 string to a Uint8Array using a browser-safe method.
+ * @param {string} base64 - The Base64 string to convert.
+ * @returns {Uint8Array} The resulting byte array.
+ */
 function base64ToBuffer(base64: string): Uint8Array {
     const binary_string = window.atob(base64);
     const len = binary_string.length;
@@ -273,13 +289,18 @@ function base64ToBuffer(base64: string): Uint8Array {
 }
 
 
-/** Converts an ArrayBuffer to a hexadecimal string. */
+/**
+ * Converts an ArrayBuffer to a hexadecimal string.
+ * @param {ArrayBuffer} buffer The buffer to convert.
+ * @returns {string} The hex-encoded string.
+ */
 function bufferToHex(buffer: ArrayBuffer): string {
     return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
  * Validates that a given object contains valid public signing and encryption keys.
+ * This is used when importing contacts to ensure the key data is well-formed.
  * @param {any} keyData - The object to validate, typically from a parsed JSON file.
  * @returns {Promise<{ signingPublicKey: Record<string, any>, encryptionPublicKey: Record<string, any> }>} An object with the validated public keys.
  * @throws {Error} if the keys are missing or fail to import.

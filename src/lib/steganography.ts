@@ -12,8 +12,8 @@ const MAGIC_HEADER = new Uint8Array([0x53, 0x47, 0x44, 0x41, 0x54, 0x41]); // "S
 
 /**
  * Converts a File object to a data URL string.
- * @param file The file to convert.
- * @returns A promise that resolves with the data URL.
+ * @param {File} file The file to convert.
+ * @returns {Promise<string>} A promise that resolves with the data URL.
  */
 function fileToDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -26,8 +26,8 @@ function fileToDataUrl(file: File): Promise<string> {
 
 /**
  * Converts a File object to an ArrayBuffer.
- * @param file The file to convert.
- * @returns A promise that resolves with the ArrayBuffer.
+ * @param {File} file The file to convert.
+ * @returns {Promise<ArrayBuffer>} A promise that resolves with the ArrayBuffer.
  */
 function fileToArrayBuffer(file: File): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
@@ -40,10 +40,10 @@ function fileToArrayBuffer(file: File): Promise<ArrayBuffer> {
 
 /**
  * Embeds data into a PNG image using the Least Significant Bit (LSB) technique.
- * @param imageFile The original PNG image file.
- * @param dataToEmbed The data to hide, as an ArrayBuffer.
- * @param stampOptions Optional settings for a visible watermark.
- * @returns A promise that resolves to a data URL for the new steganographic image.
+ * @param {File} imageFile The original PNG image file.
+ * @param {ArrayBuffer} dataToEmbed The data to hide, as an ArrayBuffer.
+ * @param {{ text: string, font: string, size: number }} [stampOptions] Optional settings for a visible watermark.
+ * @returns {Promise<string>} A promise that resolves to a data URL for the new steganographic image.
  */
 export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer, stampOptions?: { text: string, font: string, size: number }): Promise<string> {
     if (typeof window === 'undefined') throw new Error("Canvas operations can only be done in the browser.");
@@ -117,8 +117,8 @@ export async function embedDataInPng(imageFile: File, dataToEmbed: ArrayBuffer, 
 
 /**
  * Extracts data hidden in a PNG image using LSB.
- * @param imageFile The steganographic PNG file.
- * @returns A promise that resolves to the hidden data as an ArrayBuffer.
+ * @param {File} imageFile The steganographic PNG file.
+ * @returns {Promise<ArrayBuffer>} A promise that resolves to the hidden data as an ArrayBuffer.
  */
 export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> {
     if (typeof window === 'undefined') throw new Error("Canvas operations can only be done in the browser.");
@@ -142,14 +142,14 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
             
             // First, extract the 32 bits for the length
             const lengthBits: number[] = [];
-            let lastIndexForLength = 0;
+            let lastPixelIndex = 0;
             for (let i = 0; i < pixels.length; i++) {
                 if (i % 4 !== 3) { // Skip alpha channel
                     lengthBits.push(pixels[i] & 1);
-                }
-                if (lengthBits.length >= 32) {
-                    lastIndexForLength = i + 1; // The next bit will be at this index
-                    break;
+                    if (lengthBits.length >= 32) {
+                        lastPixelIndex = i + 1;
+                        break;
+                    }
                 }
             }
 
@@ -170,7 +170,7 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
             const bits: number[] = [];
             
             // Start extracting from where the length data ended
-            for (let i = lastIndexForLength; i < pixels.length; i++) {
+            for (let i = lastPixelIndex; i < pixels.length; i++) {
                 if (bits.length >= totalBitsToExtract) break;
 
                 if (i % 4 !== 3) { // Skip alpha channel
@@ -199,9 +199,9 @@ export async function extractDataFromPng(imageFile: File): Promise<ArrayBuffer> 
 
 /**
  * Embeds data into a generic file by appending it after a magic header.
- * @param coverFile The original file.
- * @param dataToEmbed The data to hide.
- * @returns A promise that resolves to a new Blob containing the original file and the hidden data.
+ * @param {File} coverFile The original file.
+ * @param {ArrayBuffer} dataToEmbed The data to hide.
+ * @returns {Promise<Blob>} A promise that resolves to a new Blob containing the original file and the hidden data.
  */
 export async function embedDataInGenericFile(coverFile: File, dataToEmbed: ArrayBuffer): Promise<Blob> {
     const coverBuffer = await fileToArrayBuffer(coverFile);
@@ -223,8 +223,8 @@ export async function embedDataInGenericFile(coverFile: File, dataToEmbed: Array
 
 /**
  * Extracts data from a generic file that was appended after a magic header.
- * @param stegoFile The file containing the hidden data.
- * @returns A promise that resolves to the hidden data as an ArrayBuffer.
+ * @param {File} stegoFile The file containing the hidden data.
+ * @returns {Promise<ArrayBuffer>} A promise that resolves to the hidden data as an ArrayBuffer.
  */
 export async function extractDataFromGenericFile(stegoFile: File): Promise<ArrayBuffer> {
     const stegoBuffer = await fileToArrayBuffer(stegoFile);
